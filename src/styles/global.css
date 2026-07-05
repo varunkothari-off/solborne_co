@@ -1,0 +1,180 @@
+/* ==========================================================================
+   Solborne & Co. — Global base styles
+   ==========================================================================
+   Consumes tokens.css only — no raw color/size values in this file beyond
+   resets. Component-scoped styles live in their .astro files.
+   ========================================================================== */
+
+@import './tokens.css';
+
+/* ---- Reset ---- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--color-paper);
+  background-image: var(--gradient-page);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+  font-weight: var(--weight-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+
+/* ---- Typography defaults ---- */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--text-hero);
+  line-height: var(--leading-hero);
+}
+
+h2 {
+  font-size: var(--text-h2);
+  line-height: var(--leading-heading);
+}
+
+h3 {
+  font-size: var(--text-h3);
+  line-height: var(--leading-heading);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--color-steel);
+  text-decoration-color: color-mix(in srgb, var(--color-steel) 40%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--duration-fast) var(--ease-out);
+}
+
+a:hover {
+  text-decoration-color: var(--color-steel);
+}
+
+strong,
+b {
+  font-weight: var(--weight-body-semibold);
+}
+
+em {
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+}
+
+img,
+svg {
+  max-width: 100%;
+  height: auto;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* ---- Focus visibility (keyboard users) ---- */
+:focus-visible {
+  outline: 2px solid var(--color-steel);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* ---- Shared layout primitives ---- */
+.wrap {
+  max-width: var(--width-wrap);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+}
+
+@media (max-width: 760px) {
+  .wrap {
+    padding-inline: var(--gutter-narrow);
+  }
+}
+
+/* Mono utility — for figures, prices, confidence numbers */
+.mono {
+  font-family: var(--font-mono);
+  font-weight: var(--weight-mono);
+}
+
+/* Eyebrow — centered mono kicker above mastheads */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--text-eyebrow);
+  font-weight: var(--weight-mono);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-stone);
+}
+
+/* Visually hidden (for accessible labels) */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Skip link */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: var(--space-sm);
+  z-index: 100;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-card);
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  top: var(--space-sm);
+}

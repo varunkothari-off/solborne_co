@@ -1,0 +1,88 @@
+---
+import Mark from './Mark.astro';
+import Wordmark from './Wordmark.astro';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="lockup" aria-hidden="true">
+      <Mark size={54} label="" />
+    </div>
+    <p class="wm"><Wordmark /></p>
+    <p class="tagline">Clear judgment about AI, within reach</p>
+
+    <nav aria-label="Footer">
+      <ul>
+        <li><a href="/services/">Services</a></li>
+        <li><a href="/approach/">Approach</a></li>
+        <li><a href="/case-studies/">Case Studies</a></li>
+        <li><a href="/about/">About</a></li>
+        <li><a href="/contact/">Contact</a></li>
+      </ul>
+    </nav>
+
+    <p class="legal">
+      &copy; {year} Solborne &amp; Co. All rights reserved.
+    </p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    border-top: var(--border-hairline);
+    margin-top: var(--space-2xl);
+    padding: 4.375rem 0 6rem;
+    text-align: center;
+    color: var(--color-ink);
+  }
+
+  .lockup {
+    display: flex;
+    justify-content: center;
+    margin-bottom: var(--space-md);
+  }
+
+  .wm {
+    font-size: 1.625rem;
+  }
+
+  .tagline {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    letter-spacing: var(--tracking-footer);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-top: 1.125rem;
+  }
+
+  nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--space-sm) var(--space-md);
+    list-style: none;
+    margin-top: var(--space-lg);
+  }
+
+  nav a {
+    font-family: var(--font-mono);
+    font-size: var(--text-eyebrow);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--color-stone);
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+
+  nav a:hover {
+    color: var(--color-ink);
+  }
+
+  .legal {
+    margin-top: var(--space-lg);
+    font-size: var(--text-caption);
+    color: var(--color-stone);
+  }
+</style>

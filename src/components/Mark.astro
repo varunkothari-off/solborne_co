@@ -1,0 +1,34 @@
+---
+/**
+ * The Solborne bearing mark: a fixed point (Bearing amber) sighted over a
+ * level horizon. Strokes inherit `currentColor` so the parent sets Ink on
+ * light grounds or Paper on Ink. The point is ALWAYS Bearing amber — the one
+ * thing that must never drop out (brand usage rule). Never tilt it.
+ */
+interface Props {
+  /** Rendered height in px; width scales to the 58:66 viewBox. */
+  size?: number;
+  /** Accessible label; pass an empty string when purely decorative. */
+  label?: string;
+}
+
+const { size = 44, label = 'Solborne bearing mark' } = Astro.props;
+const width = Math.round((58 / 66) * size);
+---
+
+<svg
+  width={width}
+  height={size}
+  viewBox="0 0 58 66"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  role={label ? 'img' : undefined}
+  aria-label={label || undefined}
+  aria-hidden={label ? undefined : 'true'}
+>
+  <circle cx="29" cy="15" r="6.5" fill="var(--color-bearing)"></circle>
+  <line x1="29" y1="21.5" x2="29" y2="50" stroke="currentColor" stroke-width="2.2"></line>
+  <line x1="5" y1="50" x2="53" y2="50" stroke="currentColor" stroke-width="2.2"></line>
+  <line x1="6.1" y1="50" x2="6.1" y2="42" stroke="currentColor" stroke-width="2.2"></line>
+  <line x1="51.9" y1="50" x2="51.9" y2="42" stroke="currentColor" stroke-width="2.2"></line>
+</svg>

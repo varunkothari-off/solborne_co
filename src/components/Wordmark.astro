@@ -1,0 +1,24 @@
+---
+/**
+ * "Solborne & Co." wordmark. Source Serif 4 at display weight, with the
+ * ampersand in Bearing amber at regular weight (per the brand sheet).
+ * Font size is inherited from the parent so lockups can scale it.
+ */
+---
+
+<span class="wordmark">Solborne <span class="amp" aria-hidden="true">&amp;</span><span class="visually-hidden">and</span> Co.</span>
+
+<style>
+  .wordmark {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    letter-spacing: 0.005em;
+    color: currentColor;
+    white-space: nowrap;
+  }
+
+  .amp {
+    color: var(--color-bearing);
+    font-weight: var(--weight-body-medium);
+  }
+</style>

@@ -1,0 +1,54 @@
+---
+/**
+ * Link-button in the brand's mono label voice. Two variants:
+ * - solid: Ink fill (primary action)
+ * - ghost: hairline outline (secondary action)
+ * Bearing amber is deliberately NOT a button color — it is never a fill.
+ */
+interface Props {
+  href: string;
+  variant?: 'solid' | 'ghost';
+}
+
+const { href, variant = 'solid' } = Astro.props;
+---
+
+<a class:list={['button', variant]} href={href}><slot /></a>
+
+<style>
+  .button {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    text-decoration: none;
+    border-radius: var(--radius-pill);
+    padding: 0.875rem 1.75rem;
+    transition: background var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .solid {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    border: 1px solid var(--color-ink);
+  }
+
+  .solid:hover {
+    background: var(--color-steel);
+    border-color: var(--color-steel);
+  }
+
+  .ghost {
+    background: transparent;
+    color: var(--color-ink);
+    border: 1px solid var(--color-stone);
+  }
+
+  .ghost:hover {
+    border-color: var(--color-ink);
+  }
+</style>

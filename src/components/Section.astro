@@ -1,0 +1,55 @@
+---
+/**
+ * Standard page section from the design file: hairline top border, mono
+ * section label with a short level dash, optional serif heading.
+ */
+interface Props {
+  label: string;
+  title?: string;
+  /** Optional id for in-page anchors. */
+  id?: string;
+}
+
+const { label, title, id } = Astro.props;
+---
+
+<section class="section" id={id}>
+  <div class="wrap">
+    <p class="sec-label">{label}</p>
+    {title && <h2>{title}</h2>}
+    <slot />
+  </div>
+</section>
+
+<style>
+  .section {
+    border-top: var(--border-hairline);
+    padding: var(--space-2xl) 0 2.875rem;
+  }
+
+  .sec-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 1.875rem;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  /* the short level dash before the label — from the design file */
+  .sec-label::before {
+    content: '';
+    width: 22px;
+    height: 1px;
+    background: var(--color-stone);
+    flex: none;
+  }
+
+  h2 {
+    margin-bottom: 1.125rem;
+  }
+</style>

@@ -1,0 +1,57 @@
+---
+/**
+ * Masthead pattern from the design file: centered mono eyebrow, serif
+ * headline, measured intro paragraph, thin level rule beneath.
+ */
+interface Props {
+  eyebrow: string;
+  title: string;
+}
+
+const { eyebrow, title } = Astro.props;
+---
+
+<header class="page-intro">
+  <div class="wrap">
+    <p class="eyebrow">{eyebrow}</p>
+    <h1>{title}</h1>
+    <div class="intro"><slot /></div>
+    <div class="rule-thin" aria-hidden="true"></div>
+  </div>
+</header>
+
+<style>
+  .page-intro {
+    padding: clamp(3.5rem, 2rem + 6vw, var(--space-3xl)) 0 3.75rem;
+    text-align: center;
+  }
+
+  .eyebrow {
+    margin-bottom: 1.875rem;
+  }
+
+  h1 {
+    margin-bottom: 1.375rem;
+  }
+
+  .intro {
+    max-width: var(--width-intro);
+    margin: 0 auto;
+    font-size: var(--text-body-lg);
+    line-height: var(--leading-intro);
+    color: var(--color-body);
+  }
+
+  .intro :global(p + p) {
+    margin-top: var(--space-sm);
+  }
+
+  /* The level horizon, in miniature. Stays level; never decorated. */
+  .rule-thin {
+    width: 60px;
+    height: 1px;
+    background: var(--color-ink);
+    opacity: 0.45;
+    margin: 2.375rem auto 0;
+  }
+</style>
