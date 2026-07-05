@@ -1,0 +1,27 @@
+# --- build output ---
+dist/
+.astro/
+node_modules/
+
+# --- environment ---
+.env
+.env.*
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+~$*
+
+# --- Confidential business documents (NEVER commit these) ---
+# The internal brand doc is marked "INTERNAL ONLY — NEVER PUBLISH".
+# The rest are private business planning files that do not belong in the
+# website repository. Kept local on purpose; see README "Decisions needed".
+Solborne_Brand_Internal_GROUND-TRUTH.md
+Solborne_Brand_Public.md
+Phase0-Research_AI-Consultancy.md
+Solborne_Acquisition-on-Autopilot.md
+Delivery-Cost-Model.xlsx
+Roadmap.docx
+Solborne_TM-A_Filing_Package_KisnoProptyLLP.docx
+Solborne_Trademark_Self-Filing_Guide.docx
+Solborne Brand Directions (standalone).html
