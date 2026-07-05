@@ -1,0 +1,225 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageIntro from '../components/PageIntro.astro';
+import Section from '../components/Section.astro';
+import Button from '../components/Button.astro';
+import { services } from '../data/services';
+
+/* DRAFT COPY */
+const pageTitle = 'Services — Solborne & Co.';
+/* DRAFT COPY */
+const pageDescription =
+  'Six AI services at flat, public prices — from a free diagnostic to a full readiness assessment. Fixed scope, human-checked, the same care at every price.';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <!-- DRAFT COPY -->
+  <PageIntro eyebrow="Services" title="A small, sharp set of services, done well.">
+    <p>
+      We productized the work: fixed scope, a flat price you see before we start, and every
+      deliverable checked by a human before it reaches you.
+    </p>
+    <p>
+      Priced so a five-person firm and a five-hundred-person firm can walk through the same
+      door.
+    </p>
+  </PageIntro>
+
+  <!-- DRAFT COPY -->
+  <Section label="The catalog" title="Six services, priced in plain sight.">
+    <!-- DRAFT COPY -->
+    <div class="catalog">
+      {
+        services.map((service) => (
+          <article class:list={['row', { flagship: service.flagship }]}>
+            <div class="row-name">
+              <h3>{service.name}</h3>
+              <p class="price-note">{service.priceNote}</p>
+            </div>
+            <div class="row-body">
+              <p class="summary">{service.summary}</p>
+              <ul class="deliverables">
+                {service.deliverables.map((item) => (
+                  <li>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <p class="price">{service.price}</p>
+          </article>
+        ))
+      }
+    </div>
+  </Section>
+
+  <!-- DRAFT COPY -->
+  <Section label="How engagements run" title="Fixed scope, flat fee, checked work.">
+    <!-- DRAFT COPY -->
+    <div class="prose">
+      <p>
+        Every engagement starts with a fixed scope and a flat fee, both stated before any
+        work begins. The price on this page is the price you pay — no meter running, no
+        surprise line items at the end.
+      </p>
+      <p>
+        Every deliverable is checked by a human before it reaches you. AI does a share of
+        the work — that is the point — but nothing leaves this firm on a model's word
+        alone.
+      </p>
+      <p>
+        Every recommendation carries a confidence level — a number, not a shrug. Where we
+        are sure, you will see it; where we are not, you will see that too. And if your
+        problem belongs to someone else — a different specialty, a different kind of firm —
+        we say so and point you there.
+      </p>
+    </div>
+  </Section>
+
+  <Section label="One more thing">
+    <!-- DRAFT COPY -->
+    <p class="lede">
+      The client paying our smallest fee gets exactly the same rigor as the client paying
+      our largest. That is not a promotion. It is the entire point.
+    </p>
+  </Section>
+
+  <Section label="Next step">
+    <!-- DRAFT COPY -->
+    <nav class="cta-row" aria-label="Get started">
+      <Button href="/contact/">Start with the free diagnostic</Button>
+      <Button href="/contact/" variant="ghost">Ask a question</Button>
+    </nav>
+  </Section>
+</BaseLayout>
+
+<style>
+  /* ---- The catalog: verdict-table-style stack ---- */
+  .catalog {
+    display: grid;
+    gap: 0;
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    background: var(--color-panel);
+    margin-top: var(--space-xs);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 220px 1fr 110px;
+    gap: var(--space-md);
+    padding: 1.375rem var(--space-md);
+    border-top: var(--border-hairline);
+    align-items: start;
+  }
+
+  .row:first-child {
+    border-top: none;
+  }
+
+  /* The single permitted amber surface — the flagship engagement. */
+  .row.flagship {
+    background: var(--color-bearing-wash);
+  }
+
+  .row-name h3 {
+    font-size: var(--text-h3);
+    line-height: var(--leading-heading);
+  }
+
+  .price-note {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-top: 0.3125rem;
+  }
+
+  .summary {
+    font-size: var(--text-body-sm);
+    line-height: 1.6;
+    color: var(--color-body);
+  }
+
+  .deliverables {
+    list-style: none;
+    margin-top: 0.875rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .deliverables li {
+    position: relative;
+    padding-left: 1.5rem;
+    font-size: 0.90625rem;
+    line-height: var(--leading-tight);
+    color: var(--color-body-strong);
+  }
+
+  .deliverables li::before {
+    content: '+';
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--color-positive);
+  }
+
+  .price {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono-medium);
+    font-size: var(--text-body);
+    color: var(--color-steel);
+    text-align: right;
+    padding-top: 0.1875rem;
+  }
+
+  @media (max-width: 760px) {
+    .row {
+      grid-template-columns: 1fr;
+      gap: var(--space-xs);
+    }
+
+    .price {
+      text-align: left;
+      padding-top: 0;
+    }
+  }
+
+  /* ---- How engagements run ---- */
+  .prose {
+    max-width: var(--width-measure);
+  }
+
+  .prose p {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+  }
+
+  .prose p + p {
+    margin-top: var(--space-sm);
+  }
+
+  /* ---- Same care at every price: serif lede pull quote ---- */
+  .lede {
+    font-family: var(--font-display);
+    font-weight: var(--weight-body-medium);
+    font-size: var(--text-lede);
+    line-height: var(--leading-lede);
+    color: var(--color-ink);
+    max-width: 44rem;
+  }
+
+  /* ---- CTA row ---- */
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    align-items: center;
+    margin-top: var(--space-2xs);
+  }
+</style>
