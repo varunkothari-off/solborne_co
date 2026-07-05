@@ -1,0 +1,308 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageIntro from '../components/PageIntro.astro';
+import Section from '../components/Section.astro';
+import Button from '../components/Button.astro';
+import ConfidenceBar from '../components/ConfidenceBar.astro';
+
+/* DRAFT COPY */
+const pageTitle = 'Approach — Solborne & Co.';
+/* DRAFT COPY */
+const pageDescription =
+  'Our method: ask plain questions, answer rigorously, verify with a human, hand over the reins. Every recommendation carries a numbered confidence level.';
+
+/* DRAFT COPY */
+const stages = [
+  {
+    num: '01',
+    name: 'Ask',
+    text: 'Eight plain questions about your work, your data, and the decision in front of you. No jargon-mystique — if a question needs a glossary, it doesn’t make the list.',
+  },
+  {
+    num: '02',
+    name: 'Answer',
+    text: 'We do the rigorous work and write it up in plain language. Short sentences, real figures, and a recommendation you can read in one sitting.',
+  },
+  {
+    num: '03',
+    name: 'Verify',
+    text: 'A human checks every answer before it reaches you — always. Verification isn’t a premium tier; it’s a standing step in the method.',
+  },
+  {
+    num: '04',
+    name: 'Hand over',
+    text: 'You leave with a roadmap you can run without us. We teach, we don’t gatekeep — we hand you the reins and get out of the driver’s seat.',
+  },
+];
+
+/* DRAFT COPY */
+const confidenceExamples = [
+  {
+    question: 'Should we use AI in our intake process?',
+    answer: 'Short answer: yes, for triage — not for the final decision.',
+    confidence: 78,
+    note: 'The gap is your data volume; we’d revisit above 10k tickets/mo.',
+  },
+  {
+    question: 'Should we automate contract drafting?',
+    answer: 'Honest answer: not yet. Checking the drafts would cost you more than the drafting saves.',
+    confidence: 55,
+    note: 'What would change it: a vetted clause library and six months of edit history.',
+  },
+];
+
+/* DRAFT COPY */
+const willList = [
+  'Give our real recommendation, even when a softer answer would sell better.',
+  'Tell you plainly when the problem belongs to someone else.',
+  'Stay level whether the news is good or bad.',
+  'Show our confidence as a number, with the reason for the gap.',
+];
+
+/* DRAFT COPY */
+const wontList = [
+  'Pretend anyone has mastered AI — us included.',
+  'Take the wheel of your business.',
+  'Inflate the good news or catastrophize the bad.',
+  'Hide a weak answer behind a polished deck.',
+];
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <!-- DRAFT COPY -->
+  <PageIntro eyebrow="Approach" title="Your guide, not your stand-in.">
+    <p>
+      We help you read the road; you're the one driving. We hand you clarity
+      and options — the decision, and the credit, stay with you.
+    </p>
+  </PageIntro>
+
+  <!-- DRAFT COPY -->
+  <Section label="The method" title="Ask, answer, verify, hand over.">
+    <ol class="stages" role="list">
+      {
+        stages.map((stage) => (
+          <li class="stage">
+            <p class="stage-num" aria-hidden="true">
+              {stage.num}
+            </p>
+            <h3>{stage.name}</h3>
+            <p class="stage-text">{stage.text}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+
+  <!-- DRAFT COPY -->
+  <Section label="Confidence gets a number" title="A number, not a shrug.">
+    <div class="conf-cols">
+      <!-- DRAFT COPY -->
+      <div class="conf-text">
+        <p>
+          Every recommendation we ship carries a numbered confidence level —
+          and the reason for the gap. Not a hedge buried in a footnote: a
+          number, and the specific thing that would move it up or down.
+        </p>
+        <p>
+          Nobody has mastered AI, us included. In a field this new, naming the
+          edges of our knowledge is the most useful thing we can do. That's why
+          we publish the uncomfortable numbers too — a 55 you can plan around
+          is worth more than a 95 you can't trust.
+        </p>
+      </div>
+      <div class="conf-stack">
+        {
+          confidenceExamples.map((example) => (
+            <ConfidenceBar
+              question={example.question}
+              answer={example.answer}
+              confidence={example.confidence}
+              note={example.note}
+            />
+          ))
+        }
+      </div>
+    </div>
+  </Section>
+
+  <!-- DRAFT COPY -->
+  <Section label="What we won't do" title="The lines we hold.">
+    <div class="lines-grid">
+      <!-- DRAFT COPY -->
+      <article class="line-card">
+        <h3>We will</h3>
+        <ul class="will" role="list">
+          {willList.map((item) => <li>{item}</li>)}
+        </ul>
+      </article>
+      <!-- DRAFT COPY -->
+      <article class="line-card">
+        <h3>We won't</h3>
+        <ul class="wont" role="list">
+          {wontList.map((item) => <li>{item}</li>)}
+        </ul>
+      </article>
+    </div>
+  </Section>
+
+  <section class="close-band" aria-label="Next step">
+    <div class="wrap">
+      <!-- DRAFT COPY -->
+      <p class="close-line">
+        This method ships as a small, sharp set of services — the same care at
+        every price.
+      </p>
+      <Button href="/services/" variant="ghost">
+        See the services this method ships as
+      </Button>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* ---- The method: 2x2 stage grid ---- */
+  .stages {
+    list-style: none;
+    margin: var(--space-sm) 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+  }
+
+  .stage {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 1.5rem 1.625rem;
+  }
+
+  .stage-num {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono-medium);
+    font-size: var(--text-caption);
+    letter-spacing: var(--tracking-tag);
+    color: var(--color-steel);
+    margin-bottom: 0.875rem;
+  }
+
+  .stage h3 {
+    margin-bottom: 0.625rem;
+  }
+
+  .stage-text {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+  }
+
+  /* ---- Confidence: text left, stacked examples right ---- */
+  .conf-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xl);
+    align-items: start;
+    margin-top: var(--space-sm);
+  }
+
+  .conf-text {
+    max-width: var(--width-measure);
+    color: var(--color-body);
+  }
+
+  .conf-text p + p {
+    margin-top: var(--space-sm);
+  }
+
+  .conf-stack {
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  /* ---- The lines we hold: do / don't cards ---- */
+  .lines-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    margin-top: var(--space-sm);
+  }
+
+  .line-card {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 1.5rem 1.625rem;
+  }
+
+  .line-card h3 {
+    margin-bottom: var(--space-sm);
+  }
+
+  .line-card ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .line-card li {
+    position: relative;
+    padding-left: 1.375rem;
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+  }
+
+  .line-card li + li {
+    margin-top: var(--space-xs);
+  }
+
+  .line-card li::before {
+    position: absolute;
+    left: 0;
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono-medium);
+  }
+
+  .will li::before {
+    content: '+';
+    color: var(--color-positive);
+  }
+
+  .wont li::before {
+    content: '\2013';
+    color: var(--color-negative);
+  }
+
+  /* ---- Closing cross-link band ---- */
+  .close-band {
+    border-top: var(--border-hairline);
+    padding: var(--space-2xl) 0;
+    text-align: center;
+  }
+
+  .close-line {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--text-lede);
+    line-height: var(--leading-lede);
+    color: var(--color-body-strong);
+    max-width: var(--width-intro);
+    margin: 0 auto var(--space-md);
+  }
+
+  /* ---- Responsive collapses ---- */
+  @media (max-width: 860px) {
+    .conf-cols {
+      grid-template-columns: 1fr;
+      gap: var(--space-lg);
+    }
+  }
+
+  @media (max-width: 760px) {
+    .stages,
+    .lines-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
