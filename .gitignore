@@ -7,6 +7,9 @@ node_modules/
 .env
 .env.*
 
+# --- local tooling ---
+.claude/
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db
@@ -16,6 +19,9 @@ Thumbs.db
 # The internal brand doc is marked "INTERNAL ONLY — NEVER PUBLISH".
 # The rest are private business planning files that do not belong in the
 # website repository. Kept local on purpose; see README "Decisions needed".
+# They live in docs/ (ignored wholesale) but the bare filename patterns are
+# kept too, in case any file is moved back to the repo root.
+docs/
 Solborne_Brand_Internal_GROUND-TRUTH.md
 Solborne_Brand_Public.md
 Phase0-Research_AI-Consultancy.md

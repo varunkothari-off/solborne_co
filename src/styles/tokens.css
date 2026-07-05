@@ -29,6 +29,7 @@
   --color-negative: #9a4b39;     /* warm rust — "don't" / fail states only */
   --color-positive: #4f7a51;     /* muted green — "do" states only */
   --color-track: #e4dccb;        /* confidence-bar track */
+  --color-bearing-wash: rgba(193, 135, 46, 0.07); /* highlight wash — the ONLY permitted amber surface */
 
   /* ---- Color: page background wash ---- */
   --gradient-page: radial-gradient(
