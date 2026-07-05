@@ -1,0 +1,136 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageIntro from '../../components/PageIntro.astro';
+import Section from '../../components/Section.astro';
+import Button from '../../components/Button.astro';
+import { caseStudies } from '../../data/case-studies';
+
+/* DRAFT COPY */
+const pageTitle = 'Case Studies — Solborne & Co.';
+/* DRAFT COPY */
+const pageDescription =
+  'Engagement write-ups from Solborne & Co. — what we did, what worked, what didn’t, and the numbers. Both write-ups are currently in preparation.';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <!-- DRAFT COPY -->
+  <PageIntro eyebrow="Case studies" title="The work, shown plainly.">
+    <p>
+      A case study should read like a working file, not a brochure. When we
+      publish an engagement, it will state what we did, what worked, what
+      didn’t, and the numbers.
+    </p>
+    <p>
+      Both write-ups below are in preparation. We’d rather show you an honest
+      placeholder than a polished story we can’t yet stand behind.
+    </p>
+  </PageIntro>
+
+  <Section label="Engagements">
+    <div class="cards">
+      {
+        caseStudies.map((study) => (
+          <article class="card">
+            <!-- DRAFT COPY -->
+            <p class="tag">Case study — in preparation</p>
+            <h2>{study.name}</h2>
+            <p class="teaser">{study.teaser}</p>
+            <a class="card-link" href={`/case-studies/${study.slug}/`}>
+              Read the placeholder <span aria-hidden="true">→</span>
+            </a>
+          </article>
+        ))
+      }
+    </div>
+  </Section>
+
+  <Section label="A note on publishing">
+    <!-- DRAFT COPY -->
+    <p class="note">
+      Two rules govern this page. We publish an engagement only with the
+      client’s consent — their story stays theirs to tell first. And we publish
+      misses alongside wins: steady in either direction, the same level read
+      whether the numbers flatter us or not.
+    </p>
+
+    <!-- DRAFT COPY -->
+    <div class="cta">
+      <Button href="/contact/" variant="ghost">
+        Talk to us about your situation
+      </Button>
+    </div>
+  </Section>
+</BaseLayout>
+
+<style>
+  /* ---- Engagement cards ---- */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+  }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 1.625rem;
+  }
+
+  .tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.875rem;
+  }
+
+  .card h2 {
+    font-size: var(--text-h3);
+    line-height: var(--leading-heading);
+    margin-bottom: 0.75rem;
+  }
+
+  .teaser {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    margin-bottom: var(--space-md);
+  }
+
+  .card-link {
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--color-steel);
+  }
+
+  .card-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ---- Publishing note + CTA ---- */
+  .note {
+    max-width: var(--width-measure);
+    color: var(--color-body);
+  }
+
+  .cta {
+    margin-top: var(--space-lg);
+  }
+
+  @media (max-width: 760px) {
+    .cards {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

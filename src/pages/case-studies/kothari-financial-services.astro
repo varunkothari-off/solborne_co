@@ -1,0 +1,131 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageIntro from '../../components/PageIntro.astro';
+import Section from '../../components/Section.astro';
+import Button from '../../components/Button.astro';
+import { caseStudies } from '../../data/case-studies';
+
+const study = caseStudies.find((entry) => entry.slug === 'kothari-financial-services');
+if (!study) {
+  throw new Error(
+    'Case study "kothari-financial-services" is missing from src/data/case-studies.ts'
+  );
+}
+
+/* DRAFT COPY */
+const pageTitle = 'Kothari Financial Services — Case Study (coming soon) — Solborne & Co.';
+/* DRAFT COPY */
+const pageDescription =
+  'The Kothari Financial Services engagement write-up is in preparation. When published, it will state what we did, what worked, what didn’t, and the numbers.';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <!-- DRAFT COPY -->
+  <PageIntro eyebrow="Case study" title={study.name}>
+    <p>The write-up of this engagement is in preparation.</p>
+  </PageIntro>
+
+  <Section label="Status">
+    <!-- DRAFT COPY -->
+    <div class="stage-panel">
+      <p class="coming-tag">Coming soon</p>
+      <p class="stage-line">
+        The full write-up is being prepared. It will state plainly what we
+        did, what worked, what didn’t, and the numbers — and nothing is
+        published without the client’s sign-off.
+      </p>
+      <p class="stage-teaser">{study.teaser}</p>
+    </div>
+  </Section>
+
+  <Section label="What to expect" title="What a Solborne write-up will include">
+    <!-- DRAFT COPY -->
+    <ul class="include-list">
+      <li>The scope and the fee band — what was agreed, and what it cost.</li>
+      <li>What we built or advised, described in plain language.</li>
+      <li>The confidence numbers we gave at the time — and how they held up.</li>
+      <li>What we’d do differently, stated as plainly as what went right.</li>
+    </ul>
+
+    <!-- DRAFT COPY -->
+    <div class="cta-row">
+      <Button href="/case-studies/" variant="ghost">Back to case studies</Button>
+      <Button href="/contact/">Start a conversation</Button>
+    </div>
+  </Section>
+</BaseLayout>
+
+<style>
+  /* ---- Coming-soon stage panel ---- */
+  .stage-panel {
+    max-width: 50rem;
+    margin: 0 auto;
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-stage);
+    padding: clamp(2.5rem, 1.5rem + 4vw, 4.5rem) clamp(1.25rem, 0.25rem + 5vw, 4rem);
+    text-align: center;
+  }
+
+  .coming-tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-eyebrow);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-eyebrow);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: var(--space-md);
+  }
+
+  .stage-line {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--text-lede);
+    line-height: var(--leading-lede);
+    color: var(--color-ink);
+    max-width: 44ch;
+    margin: 0 auto var(--space-md);
+  }
+
+  .stage-teaser {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    max-width: 56ch;
+    margin: 0 auto;
+  }
+
+  /* ---- What the write-up will include ---- */
+  .include-list {
+    list-style: none;
+    max-width: var(--width-measure);
+    display: grid;
+    gap: var(--space-xs);
+  }
+
+  .include-list li {
+    position: relative;
+    padding-left: 1.75rem;
+    color: var(--color-body);
+    line-height: var(--leading-tight);
+  }
+
+  .include-list li::before {
+    content: '+';
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono);
+    color: var(--color-stone);
+  }
+
+  /* ---- CTA row ---- */
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-lg);
+  }
+</style>
