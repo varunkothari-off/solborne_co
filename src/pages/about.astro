@@ -1,0 +1,227 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageIntro from '../components/PageIntro.astro';
+import Section from '../components/Section.astro';
+import Button from '../components/Button.astro';
+
+/* DRAFT COPY */
+const pageTitle = 'About — Solborne & Co.';
+
+/* DRAFT COPY */
+const pageDescription =
+  "We're not AI experts — nobody is yet. Solborne answers the AI questions that used to require an expensive consultant: rigorous, plain-language, human-checked.";
+
+/* DRAFT COPY */
+const values = [
+  {
+    num: '01',
+    name: 'Duty over outcome',
+    text: "We own the quality and honesty of our work, not outcomes we can't control. You get our real recommendation even when a softer answer would be easier to sell.",
+  },
+  {
+    num: '02',
+    name: 'Steady in either direction',
+    text: 'The same calm read whether the news is good or bad. No hype on the way up, no panic on the way down — advice you can actually plan around.',
+  },
+  {
+    num: '03',
+    name: 'Your fight, not ours',
+    text: "We're your guide, not your stand-in. Clarity and options come from us; the decision — and the credit — stay with you.",
+  },
+  {
+    num: '04',
+    name: "Know what you don't know",
+    text: "No one has mastered AI yet, us included. We tell you what we know, what we don't, and how sure we are — confidence gets a number, not a shrug.",
+  },
+  {
+    num: '05',
+    name: 'Your own work, well done',
+    text: "We'd rather be genuinely excellent in our own lane than a passable imitation of a big-name firm. When a problem belongs to someone else, we say so plainly.",
+  },
+  {
+    num: '06',
+    name: 'The same care at every price',
+    text: "Our smallest-fee client gets the same rigor as our largest. That isn't a promotion — it's the entire point.",
+  },
+];
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <!-- DRAFT COPY -->
+  <PageIntro eyebrow="About" title="We're not AI experts. We don't think anyone is yet.">
+    <p>
+      AI keeps outgrowing whoever claims to have mastered it — and the people selling certainty
+      are selling you something. So we start somewhere more honest: what we know, what we don't,
+      and how sure we are.
+    </p>
+  </PageIntro>
+
+  <Section label="The stance">
+    <div class="prose">
+      <!-- DRAFT COPY -->
+      <p class="lede">The honest work isn't pretending to have it pinned down.</p>
+
+      <!-- DRAFT COPY -->
+      <p>
+        We've been working in AI since the start, and that's exactly why we won't play oracle.
+        A field that's still being defined as everyone uses it can't have masters — what you get
+        right today is the old way by tomorrow. So we don't claim certainty. We claim rigor,
+        verification, and honesty about the edges of what we know.
+      </p>
+      <p>
+        In practice, that means we take the questions that used to require an expensive
+        consultant — should we use AI here, is this contract sound, what does the market
+        actually show — and answer them rigorously, in plain language, checked by a real person
+        before anything reaches you.
+      </p>
+      <p>
+        Then we hand you the reins. The decision is yours to make and yours to own. We're the
+        guide who helps you read the road; you're the one driving.
+      </p>
+    </div>
+  </Section>
+
+  <Section label="Why we exist" title="Built for the people the consulting industry left behind">
+    <div class="prose">
+      <!-- DRAFT COPY -->
+      <p>
+        If you run a small firm, a solo practice, or a growing brand, you've probably been
+        quoted a number that made the whole idea a non-starter — or handed a polished deck that
+        quietly dodged the actual question. Good judgment shouldn't be a luxury good.
+      </p>
+      <p>
+        So we productized it: a small, sharp set of services, done well and priced so a
+        five-person practice and a five-hundred-person firm walk through the same door. We want
+        good judgment about AI to belong to everyone who has to make a decision, not just the
+        few who could always afford it.
+      </p>
+      <p>
+        That's the whole job: make rigorous, independent judgment about AI affordable and
+        within reach — clear answers, checked by a human before they reach you, and the footing
+        to act on them yourself. We do our part of the work properly so you can do yours.
+      </p>
+    </div>
+  </Section>
+
+  <Section label="What we hold ourselves to" title="Six commitments, in plain words">
+    <ol class="values" role="list">
+      {
+        values.map((value) => (
+          <li class="value-card">
+            <span class="value-num" aria-hidden="true">
+              {value.num}
+            </span>
+            <h3>{value.name}</h3>
+            <p>{value.text}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </Section>
+
+  <Section label="Where this is going" title="The first place people turn">
+    <div class="prose">
+      <!-- DRAFT COPY -->
+      <p>
+        By 2040, we want to be the first place people and businesses turn for a clear,
+        trustworthy, affordable answer about AI — in their own language and their own currency.
+      </p>
+      <p>
+        Not the biggest firm. The most reachable one — the default first call for anyone who
+        was priced out of good advice before. Everything we build between now and then is
+        measured against one question: does it put clear judgment within reach of one more
+        person who needs it?
+      </p>
+    </div>
+  </Section>
+
+  <Section label="Next step">
+    <div class="prose">
+      <!-- DRAFT COPY -->
+      <p>The first step costs nothing, and what you do with it stays yours to decide.</p>
+    </div>
+    <div class="cta-row">
+      <!-- DRAFT COPY -->
+      <Button href="/contact/">Start with the free diagnostic</Button>
+      <Button href="/approach/" variant="ghost">See how we work</Button>
+    </div>
+  </Section>
+</BaseLayout>
+
+<style>
+  /* ---- Long-form copy blocks ---- */
+  .prose {
+    max-width: var(--width-measure);
+    color: var(--color-body);
+  }
+
+  .prose p + p {
+    margin-top: var(--space-sm);
+  }
+
+  /* Serif pull-quote lede — mirrors the brand sheet's type specimen */
+  .lede {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--text-lede);
+    line-height: var(--leading-lede);
+    color: var(--color-body-strong);
+    margin-bottom: var(--space-md);
+  }
+
+  .prose p + .lede,
+  .prose .lede + p {
+    margin-top: var(--space-md);
+  }
+
+  /* ---- Values grid ---- */
+  .values {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-md);
+    margin-top: var(--space-md);
+  }
+
+  .value-card {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 1.5rem 1.625rem;
+  }
+
+  .value-num {
+    display: block;
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono);
+    font-size: var(--text-label);
+    letter-spacing: var(--tracking-tag);
+    color: var(--color-steel);
+    margin-bottom: 0.875rem;
+  }
+
+  .value-card h3 {
+    margin-bottom: 0.625rem;
+  }
+
+  .value-card p {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+  }
+
+  @media (max-width: 760px) {
+    .values {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  /* ---- CTA row ---- */
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-top: var(--space-md);
+  }
+</style>
