@@ -10,9 +10,11 @@
     "astro": "astro"
   },
   "dependencies": {
+    "@astrojs/node": "^9.5.5",
     "@fontsource-variable/public-sans": "^5.2.5",
     "@fontsource-variable/source-serif-4": "^5.2.5",
     "@fontsource/ibm-plex-mono": "^5.2.5",
+    "@supabase/supabase-js": "^2.110.0",
     "astro": "^5.13.0"
   }
 }
