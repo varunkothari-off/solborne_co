@@ -4,6 +4,7 @@ import PageIntro from '../components/PageIntro.astro';
 import Section from '../components/Section.astro';
 import Button from '../components/Button.astro';
 import { services } from '../data/services';
+import { roadmap } from '../data/roadmap';
 
 // PLACEHOLDER: points at Contact until the real diagnostic flow ships.
 // Re-point this one constant when the diagnostic page exists.
@@ -65,6 +66,38 @@ const pageDescription =
               </a>
             </p>
           </article>
+        ))
+      }
+    </div>
+  </Section>
+
+  <Section label="The roadmap" title="Where this goes next.">
+    <p class="roadmap-intro">
+      The six services above are staffed, checked, and ready today. Everything below is
+      the roadmap — real capability, not yet staffed with a named expert, so we don't
+      sell it yet. When an item goes live, it moves into the catalog above under the same
+      rule as everything else: fixed scope, a human check, the same care at every price.
+    </p>
+
+    <!-- Roadmap entries are deliberately non-interactive: no links, no
+         CTAs, no pricing. Nothing here can be booked today. -->
+    <div class="roadmap">
+      {
+        roadmap.map((category) => (
+          <div class="roadmap-category">
+            <h3 class="category-label">{category.name}</h3>
+            <ul class="roadmap-list" role="list">
+              {category.items.map((item) => (
+                <li class="roadmap-item">
+                  <div class="roadmap-text">
+                    <p class="roadmap-name">{item.name}</p>
+                    <p class="roadmap-blurb">{item.blurb}</p>
+                  </div>
+                  <p class="roadmap-tag">On our roadmap</p>
+                </li>
+              ))}
+            </ul>
+          </div>
         ))
       }
     </div>
@@ -220,6 +253,82 @@ const pageDescription =
     .row-cta {
       text-align: left;
       padding-top: 0;
+    }
+  }
+
+  /* ---- The roadmap: deliberately lighter than the live catalog ----
+     No panel container, no border card, no links — hairline rows in
+     Stone-weighted type so the staffed catalog above visibly outranks it. */
+  .roadmap-intro {
+    max-width: var(--width-measure);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+    margin-bottom: var(--space-lg);
+  }
+
+  .roadmap {
+    display: grid;
+    gap: var(--space-lg);
+  }
+
+  .category-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-block-label);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: var(--space-xs);
+    padding-bottom: 0.625rem;
+    border-bottom: var(--border-hairline);
+  }
+
+  .roadmap-list {
+    list-style: none;
+  }
+
+  .roadmap-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--space-md);
+    align-items: baseline;
+    padding: 0.875rem 0;
+    border-bottom: var(--border-hairline);
+  }
+
+  .roadmap-item:last-child {
+    border-bottom: none;
+  }
+
+  .roadmap-name {
+    font-weight: var(--weight-body-medium);
+    font-size: var(--text-body-sm);
+    color: var(--color-ink);
+  }
+
+  .roadmap-blurb {
+    font-size: var(--text-caption);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    margin-top: 0.25rem;
+    max-width: 62ch;
+  }
+
+  .roadmap-tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 760px) {
+    .roadmap-item {
+      grid-template-columns: 1fr;
+      gap: 0.375rem;
     }
   }
 
