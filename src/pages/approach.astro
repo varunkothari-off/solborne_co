@@ -5,18 +5,15 @@ import Section from '../components/Section.astro';
 import Button from '../components/Button.astro';
 import ConfidenceBar from '../components/ConfidenceBar.astro';
 
-/* DRAFT COPY */
 const pageTitle = 'Approach — Solborne & Co.';
-/* DRAFT COPY */
 const pageDescription =
-  'Our method: ask plain questions, answer rigorously, verify with a human, hand over the reins. Every recommendation carries a numbered confidence level.';
+  'Our method: ask plain questions, answer rigorously, check every paid deliverable with a human, and hand you the reins. Confidence gets a number, not a shrug.';
 
-/* DRAFT COPY */
 const stages = [
   {
     num: '01',
     name: 'Ask',
-    text: 'Eight plain questions about your work, your data, and the decision in front of you. No jargon-mystique — if a question needs a glossary, it doesn’t make the list.',
+    text: 'Eight plain questions about your work, your data, and the decision in front of you. If a question needs a glossary, it doesn’t make the list.',
   },
   {
     num: '02',
@@ -26,22 +23,21 @@ const stages = [
   {
     num: '03',
     name: 'Verify',
-    text: 'Every paid deliverable is checked by a human before it reaches you — always. Verification isn’t a premium tier; it’s a standing step in the method.',
+    text: 'Every paid deliverable is checked by a human before it reaches you. Verification isn’t a premium tier; it’s a standing step in the method.',
   },
   {
     num: '04',
     name: 'Hand over',
-    text: 'You leave with a roadmap you can run without us. We teach, we don’t gatekeep — we hand you the reins and get out of the driver’s seat.',
+    text: 'You leave with a roadmap you can run without us. We teach, we don’t gatekeep — we hand you the reins and stay out of the driver’s seat.',
   },
 ];
 
-/* DRAFT COPY */
 const confidenceExamples = [
   {
     question: 'Should we use AI in our intake process?',
     answer: 'Short answer: yes, for triage — not for the final decision.',
     confidence: 78,
-    note: 'The gap is your data volume; we’d revisit above 10k tickets/mo.',
+    note: 'The gap is your data volume; we’d revisit above 10,000 tickets a month.',
   },
   {
     question: 'Should we automate contract drafting?',
@@ -51,25 +47,22 @@ const confidenceExamples = [
   },
 ];
 
-/* DRAFT COPY */
 const willList = [
-  'Give our real recommendation, even when a softer answer would sell better.',
+  'Give you our real recommendation, even when a softer, easier answer would be simpler to sell.',
   'Tell you plainly when the problem belongs to someone else.',
-  'Stay level whether the news is good or bad.',
+  'Give you the same calm, honest read whether the news is good or bad.',
   'Show our confidence as a number, with the reason for the gap.',
 ];
 
-/* DRAFT COPY */
 const wontList = [
-  'Pretend anyone has mastered AI — us included.',
+  'Pretend anyone has mastered AI yet — us included.',
   'Take the wheel of your business.',
-  'Inflate the good news or catastrophize the bad.',
+  'Inflate in the good times or catastrophize in the bad.',
   'Hide a weak answer behind a polished deck.',
 ];
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
-  <!-- DRAFT COPY -->
   <PageIntro eyebrow="Approach" title="Your guide, not your stand-in.">
     <p>
       We help you read the road; you're the one driving. We hand you clarity
@@ -77,7 +70,6 @@ const wontList = [
     </p>
   </PageIntro>
 
-  <!-- DRAFT COPY -->
   <Section label="The method" title="Ask, answer, verify, hand over.">
     <ol class="stages" role="list">
       {
@@ -94,20 +86,18 @@ const wontList = [
     </ol>
   </Section>
 
-  <!-- DRAFT COPY -->
   <Section label="Confidence gets a number" title="A number, not a shrug.">
     <div class="conf-cols">
-      <!-- DRAFT COPY -->
       <div class="conf-text">
         <p>
-          Every recommendation we ship carries a numbered confidence level —
-          and the reason for the gap. Not a hedge buried in a footnote: a
-          number, and the specific thing that would move it up or down.
+          Every recommendation carries a numbered confidence level — and the
+          reason for the gap. Not a hedge buried in a footnote: a number, and
+          the specific thing that would move it up or down.
         </p>
         <p>
-          Nobody has mastered AI, us included. In a field this new, naming the
-          edges of our knowledge is the most useful thing we can do. That's why
-          we publish the uncomfortable numbers too — a <span class="fig">55</span> you can plan around
+          No one has mastered AI yet, us included. In a field this new, naming
+          the edges of our knowledge is the most useful thing we can do. That's
+          why we show the uncomfortable numbers too — a <span class="fig">55</span> you can plan around
           is worth more than a <span class="fig">95</span> you can't trust.
         </p>
       </div>
@@ -126,17 +116,14 @@ const wontList = [
     </div>
   </Section>
 
-  <!-- DRAFT COPY -->
-  <Section label="What we won't do" title="The lines we hold.">
+  <Section label="What we hold ourselves to" title="The lines we hold.">
     <div class="lines-grid">
-      <!-- DRAFT COPY -->
       <article class="line-card">
         <h3>We will</h3>
         <ul class="will" role="list">
           {willList.map((item) => <li>{item}</li>)}
         </ul>
       </article>
-      <!-- DRAFT COPY -->
       <article class="line-card">
         <h3>We won't</h3>
         <ul class="wont" role="list">
@@ -148,13 +135,12 @@ const wontList = [
 
   <section class="close-band" aria-label="Next step">
     <div class="wrap">
-      <!-- DRAFT COPY -->
       <p class="close-line">
         This method ships as a small, sharp set of services — the same care at
         every price.
       </p>
       <Button href="/services/" variant="ghost">
-        See the services this method ships as
+        See the services
       </Button>
     </div>
   </section>
