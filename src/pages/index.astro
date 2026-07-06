@@ -9,9 +9,8 @@ import { caseStudies } from '../data/case-studies';
 import { site } from '../data/site';
 
 const pageTitle = `${site.name} — ${site.tagline}`;
-/* DRAFT COPY */
 const pageDescription =
-  'Independent AI advisory for small firms and growing practices. Rigorous, human-checked answers about AI in plain language, at prices within reach.';
+  'Independent AI advisory for small firms, solo practices, and growing brands. Clear, human-checked answers in plain language — affordable and within reach.';
 
 /** Home-page service highlights, pulled from the catalog in display order. */
 const highlightSlugs = ['diagnostic', 'opportunity-audit', 'module-build'];
@@ -19,7 +18,6 @@ const highlights = highlightSlugs
   .map((slug) => services.find((s) => s.slug === slug))
   .filter((s): s is Service => s !== undefined);
 
-/* DRAFT COPY */
 const steps = [
   {
     num: '01',
@@ -29,7 +27,7 @@ const steps = [
   {
     num: '02',
     name: 'Answer',
-    text: 'Rigorous work in plain language. No jargon-mystique, no deck built to impress rather than inform.',
+    text: 'Rigorous work in plain language. No jargon, no polished deck that quietly dodges the actual question.',
   },
   {
     num: '03',
@@ -45,13 +43,12 @@ const steps = [
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
-  <!-- DRAFT COPY -->
   <PageIntro eyebrow="Independent AI advisory" title="Clear judgment about AI, within reach.">
     <p>
       Solborne &amp; Co. answers the AI questions that used to require an expensive
       consultant — rigorously and in plain language, with every paid deliverable
       checked by a human before it reaches you. Built for small firms, solo practices,
-      and growing brands priced out of the big consultancies.
+      and growing brands priced out of good advice.
     </p>
   </PageIntro>
 
@@ -63,7 +60,6 @@ const steps = [
   </div>
 
   <Section label="What we do" title="The questions that used to require an expensive consultant">
-    <!-- DRAFT COPY -->
     <div class="service-grid">
       {
         highlights.map((s) => (
@@ -75,18 +71,15 @@ const steps = [
         ))
       }
     </div>
-    <!-- DRAFT COPY -->
     <p class="more"><a href="/services/">All services &rarr;</a></p>
   </Section>
 
   <Section label="How we work" title="Your guide, not your stand-in">
-    <!-- DRAFT COPY -->
     <p class="section-lead">
       We don't take the wheel of your business. We help you read the road, then hand
       you the reins — the same care at every price.
     </p>
     <div class="how-grid">
-      <!-- DRAFT COPY -->
       <ol class="steps" role="list">
         {
           steps.map((step) => (
@@ -101,23 +94,19 @@ const steps = [
         }
       </ol>
       <div class="demo">
-        <!-- DRAFT COPY -->
         <ConfidenceBar
           question="Should we use AI in our intake process?"
           answer="Short answer: yes, for triage — not for the final decision."
           confidence={78}
           note="The gap is your data volume; we'd revisit above 10k tickets/mo."
         />
-        <!-- DRAFT COPY -->
         <p class="demo-note">Every answer we hand over carries its number.</p>
       </div>
     </div>
-    <!-- DRAFT COPY -->
     <p class="more"><a href="/approach/">Our approach &rarr;</a></p>
   </Section>
 
-  <Section label="Recent work" title="Recent engagements">
-    <!-- DRAFT COPY -->
+  <Section label="Case studies" title="Write-ups in preparation">
     <div class="case-grid">
       {
         caseStudies.map((cs) => (
@@ -136,7 +125,6 @@ const steps = [
   <section class="cta-band" aria-label="Start a conversation" data-reveal>
     <div class="wrap">
       <div class="stage">
-        <!-- DRAFT COPY -->
         <p class="pull">
           If AI is on your mind and the big firms are out of reach, start with the
           read that costs nothing.
