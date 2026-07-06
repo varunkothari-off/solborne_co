@@ -410,10 +410,14 @@ const pageDescription =
         frequency: string | null;
         scale: string | null;
         lead: { name: string; email: string; firm: string };
+        /** Server-side lead id once POST /api/leads succeeds. */
+        leadId: string | null;
+        leadSaveFailed: boolean;
       } = {
         path: null, domains: [], role: null, roleValue: null, tools: [],
         answers: {}, frequency: null, scale: null,
         lead: { name: '', email: '', firm: '' },
+        leadId: null, leadSaveFailed: false,
       };
 
       const esc = (s: string) =>
@@ -596,7 +600,7 @@ const pageDescription =
         }
       }
 
-      function onNext() {
+      async function onNext() {
         const steps = buildSteps();
         const step = steps[stepIndex];
         if (step === 'domains') {
@@ -624,11 +628,10 @@ const pageDescription =
           };
 
           // ============================================================
-          // LEAD CAPTURE INTEGRATION POINT (front-end only — intentional)
-          // The visitor's details and their full diagnostic answers are
-          // assembled below but NOT transmitted anywhere yet — mirroring
-          // the contact form's integration point. To wire it up, POST
-          // `payload` to your endpoint or form service here.
+          // LEAD CAPTURE — WIRED: the payload is stored server-side via
+          // POST /api/leads (Supabase-backed). The returned lead id powers
+          // the "Book the discovery call" CTA on the read-out. A failure
+          // never blocks the read-out — the visitor still gets their result.
           // ============================================================
           const payload = {
             lead: state.lead,
@@ -641,7 +644,32 @@ const pageDescription =
             scale: state.scale,
             matches: score().ranked,
           };
-          console.debug('[solborne] diagnostic lead (not transmitted yet):', payload);
+
+          const nextBtn = el!.querySelector<HTMLButtonElement>('[data-next]');
+          if (nextBtn) {
+            nextBtn.disabled = true;
+            nextBtn.textContent = 'Saving…';
+          }
+          state.leadId = null;
+          state.leadSaveFailed = false;
+          try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 8000);
+            const res = await fetch('/api/leads', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: controller.signal,
+            });
+            clearTimeout(timer);
+            if (res.ok) {
+              const data = await res.json();
+              state.leadId = typeof data.lead_id === 'string' ? data.lead_id : null;
+            }
+            state.leadSaveFailed = !state.leadId;
+          } catch {
+            state.leadSaveFailed = true;
+          }
 
           go(1);
         }
@@ -914,9 +942,19 @@ const pageDescription =
             </div>
 
             <div class="dx-cta">
-              <a class="dx-primary dx-primary--link" href="/contact/">Get a human-reviewed version &rarr;</a>
+              ${
+                state.leadId
+                  ? `<a class="dx-primary dx-primary--link" href="/book/?lead=${esc(state.leadId)}">Book the discovery call &rarr;</a>
+                     <a class="dx-alt" href="/contact/">Or write to us &rarr;</a>`
+                  : `<a class="dx-primary dx-primary--link" href="/contact/">Get a human-reviewed version &rarr;</a>`
+              }
               <button type="button" class="dx-restart" data-restart>Start over</button>
             </div>
+            ${
+              state.leadSaveFailed
+                ? `<p class="dx-disclaimer">We couldn’t reach our server to save this read-out, so booking isn’t available from here — your read-out still stands, and the contact page works.</p>`
+                : ''
+            }
           </div>` +
           `<div class="dx-nav"><button type="button" class="dx-back" data-back>&larr; Back</button></div>`;
 
@@ -924,7 +962,9 @@ const pageDescription =
         el!.querySelector('[data-restart]')?.addEventListener('click', () => {
           state.path = null; state.domains = []; state.answers = {};
           state.role = null; state.roleValue = null; state.tools = [];
-          state.frequency = null; state.scale = null; stepIndex = 0; render();
+          state.frequency = null; state.scale = null;
+          state.leadId = null; state.leadSaveFailed = false;
+          stepIndex = 0; render();
         });
         el!.querySelector<HTMLElement>('.dx-q')?.focus();
       }
@@ -1160,6 +1200,20 @@ const pageDescription =
 
   .dx-back:hover,
   .dx-restart:hover {
+    color: var(--color-ink);
+  }
+
+  /* Quiet secondary link beside the booking CTA. */
+  .dx-alt {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--color-steel);
+  }
+
+  .dx-alt:hover {
     color: var(--color-ink);
   }
 

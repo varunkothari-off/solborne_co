@@ -1,0 +1,551 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageIntro from '../../components/PageIntro.astro';
+import Section from '../../components/Section.astro';
+import { roadmap } from '../../data/roadmap';
+
+/**
+ * Part B of the onboarding flow: book the paid discovery call.
+ * Static shell + a small vanilla island. The island:
+ *   1. loads the visitor's diagnostic read-out (?lead=<uuid>),
+ *   2. signs them in with a Supabase email one-time code (real auth),
+ *   3. computes the related-vs-separate call plan from their multi-select,
+ *   4. requires the explicit automated-call consent (spec constraint),
+ *   5. creates the booking + payment order via POST /api/bookings.
+ * In stub mode (no real Razorpay keys) payment is simulated server-side
+ * through the SAME signed-webhook trust path real payments will use.
+ */
+
+// slug -> display info for the selection list (single source of truth).
+const workflowInfo: Record<string, { name: string; category: string }> = {};
+for (const category of roadmap) {
+  for (const item of category.items) {
+    if (item.slug) workflowInfo[item.slug] = { name: item.name, category: category.name };
+  }
+}
+
+const pageTitle = 'Book the discovery call — Solborne & Co.';
+const pageDescription =
+  'Book the paid discovery call: a short, structured call that maps what you told the diagnostic to the right workflows — reviewed by a human before anything is delivered.';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <PageIntro eyebrow="Book" title="The discovery call.">
+    <p>
+      A short, structured call that takes what you told the diagnostic and maps
+      it to the right workflows. You'll see exactly what it costs before you
+      pay, and a human reviews everything before it reaches you.
+    </p>
+  </PageIntro>
+
+  <Section label="Booking">
+    <div class="bk" data-book>
+      <noscript>
+        <p class="bk-note">
+          Booking needs JavaScript. You can also
+          <a href="/contact/">write to us directly</a> — a person reads it.
+        </p>
+      </noscript>
+
+      <div class="bk-card" data-step="lead" hidden>
+        <p class="bk-eyebrow">1 — Your read-out</p>
+        <h3 class="bk-q">What should the call cover?</h3>
+        <p class="bk-hint" data-lead-hint>Pick any that apply — from your diagnostic read-out.</p>
+        <div class="bk-options" data-selections></div>
+        <p class="bk-plan" data-plan hidden></p>
+      </div>
+
+      <div class="bk-card" data-step="missing-lead" hidden>
+        <p class="bk-eyebrow">Start with the diagnostic</p>
+        <p class="bk-note">
+          Booking starts from your diagnostic read-out, and this page was opened
+          without one. <a href="/diagnostic/">Take the free diagnostic</a> — a
+          few plain questions — and the read-out will bring you back here.
+        </p>
+      </div>
+
+      <div class="bk-card" data-step="auth" hidden>
+        <p class="bk-eyebrow">2 — Sign in</p>
+        <h3 class="bk-q">Where should the booking live?</h3>
+        <p class="bk-hint">
+          We'll email you a six-digit code — no password to invent.
+        </p>
+        <div class="bk-fields">
+          <div class="bk-field">
+            <label for="bk-email">Email</label>
+            <input id="bk-email" type="email" autocomplete="email" required />
+          </div>
+          <div class="bk-field" data-otp-field hidden>
+            <label for="bk-otp">Six-digit code</label>
+            <input id="bk-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+          </div>
+        </div>
+        <button type="button" class="bk-primary" data-send-code>Send the code</button>
+        <button type="button" class="bk-primary" data-verify-code hidden>Verify &rarr;</button>
+        <p class="bk-signed" data-signed hidden></p>
+      </div>
+
+      <div class="bk-card" data-step="consent" hidden>
+        <p class="bk-eyebrow">3 — Consent &amp; payment</p>
+        <h3 class="bk-q">One thing we need in writing.</h3>
+        <label class="bk-consent">
+          <input type="checkbox" data-consent />
+          <span>
+            I consent to an automated discovery call: the call is run by a
+            voice AI, recorded, and its transcript is used to route my request
+            to the right expert. A human reviews the outcome before anything
+            is delivered.
+          </span>
+        </label>
+        <button type="button" class="bk-primary" data-book-btn disabled>Book and pay &rarr;</button>
+      </div>
+
+      <div class="bk-card" data-step="pay" hidden>
+        <p class="bk-eyebrow">Payment</p>
+        <h3 class="bk-q" data-pay-title>Complete the payment.</h3>
+        <p class="bk-note" data-pay-note></p>
+        <!-- STUB checkout: with real Razorpay keys this button is replaced by
+             Razorpay Checkout (see docs/wiring-checklist.md). The simulator
+             endpoint self-disables the moment real keys exist. -->
+        <button type="button" class="bk-primary" data-simulate hidden>
+          Simulate successful payment (stub)
+        </button>
+      </div>
+
+      <p class="bk-error" data-error hidden></p>
+    </div>
+  </Section>
+
+  <script type="application/json" id="bk-workflows" set:html={JSON.stringify(workflowInfo)}></script>
+
+  <script>
+    import { createClient } from '@supabase/supabase-js';
+
+    type WorkflowInfo = Record<string, { name: string; category: string }>;
+
+    const root = document.querySelector<HTMLElement>('[data-book]');
+    const wfEl = document.getElementById('bk-workflows');
+    if (root && wfEl) {
+      const workflows: WorkflowInfo = JSON.parse(wfEl.textContent || '{}');
+      const supabase = createClient(
+        import.meta.env.PUBLIC_SUPABASE_URL,
+        import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      const qs = <T extends HTMLElement>(sel: string) =>
+        root.querySelector<T>(sel)!;
+      const show = (sel: string, on = true) => {
+        qs(sel).hidden = !on;
+      };
+      const errorEl = qs<HTMLElement>('[data-error]');
+      const fail = (msg: string) => {
+        errorEl.textContent = msg;
+        errorEl.hidden = false;
+      };
+      const clearError = () => {
+        errorEl.hidden = true;
+      };
+
+      const state = {
+        leadId: null as string | null,
+        selections: new Set<string>(),
+        email: '',
+        token: null as string | null,
+        bookingId: null as string | null,
+        order: null as { order_id: string; stub: boolean } | null,
+      };
+
+      // Expose a handle for local testing only (no secrets inside).
+      (window as any).__bk = state;
+
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+      // ---- Step 1: read-out selections ----
+      function renderPlan() {
+        const planEl = qs<HTMLElement>('[data-plan]');
+        const cats = new Set(
+          [...state.selections].map((s) => workflows[s]?.category).filter(Boolean)
+        );
+        if (state.selections.size === 0) {
+          planEl.hidden = true;
+          return;
+        }
+        planEl.hidden = false;
+        planEl.textContent =
+          cats.size > 1
+            ? `These span ${cats.size} areas — the call is planned as separate segments, one per area.`
+            : 'These are related — one call covers them.';
+      }
+
+      function renderSelections(matches: string[]) {
+        const box = qs<HTMLElement>('[data-selections]');
+        box.innerHTML = matches
+          .filter((slug) => workflows[slug])
+          .map(
+            (slug, i) => `
+              <label class="bk-option${i === 0 ? ' is-selected' : ''}">
+                <input type="checkbox" value="${esc(slug)}" ${i === 0 ? 'checked' : ''}>
+                <span class="bk-option-name">${esc(workflows[slug].name)}</span>
+                <span class="bk-option-cat">${esc(workflows[slug].category)}</span>
+              </label>`
+          )
+          .join('');
+        box.querySelectorAll<HTMLInputElement>('input').forEach((input) => {
+          if (input.checked) state.selections.add(input.value);
+          input.addEventListener('change', () => {
+            input.closest('.bk-option')?.classList.toggle('is-selected', input.checked);
+            if (input.checked) state.selections.add(input.value);
+            else state.selections.delete(input.value);
+            renderPlan();
+          });
+        });
+        renderPlan();
+      }
+
+      async function loadLead() {
+        const leadId = new URLSearchParams(location.search).get('lead');
+        if (!leadId) {
+          show('[data-step="missing-lead"]');
+          return false;
+        }
+        const res = await fetch(`/api/leads/${encodeURIComponent(leadId)}/recommendation`);
+        if (!res.ok) {
+          show('[data-step="missing-lead"]');
+          return false;
+        }
+        const rec = await res.json();
+        state.leadId = leadId;
+        const matches: string[] = Array.isArray(rec.matches) ? rec.matches : [];
+        if (rec.name) {
+          qs<HTMLElement>('[data-lead-hint]').textContent =
+            `Pick any that apply, ${rec.name.split(/\s+/)[0]} — from your diagnostic read-out.`;
+        }
+        renderSelections(matches);
+        show('[data-step="lead"]');
+        show('[data-step="auth"]');
+        show('[data-step="consent"]');
+        return true;
+      }
+
+      // ---- Step 2: Supabase email OTP auth (real) ----
+      const emailInput = qs<HTMLInputElement>('#bk-email');
+      const otpInput = qs<HTMLInputElement>('#bk-otp');
+
+      qs<HTMLButtonElement>('[data-send-code]').addEventListener('click', async () => {
+        clearError();
+        const email = emailInput.value.trim();
+        if (!email || !emailInput.checkValidity()) {
+          fail('Please enter a working email.');
+          return;
+        }
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: true },
+        });
+        if (error) {
+          fail(`Could not send the code: ${error.message}`);
+          return;
+        }
+        state.email = email;
+        show('[data-otp-field]');
+        show('[data-verify-code]');
+        qs<HTMLElement>('[data-send-code]').textContent = 'Resend the code';
+        otpInput.focus();
+      });
+
+      qs<HTMLButtonElement>('[data-verify-code]').addEventListener('click', async () => {
+        clearError();
+        const token = otpInput.value.trim();
+        if (token.length < 6) {
+          fail('Enter the six-digit code from the email.');
+          return;
+        }
+        const { data, error } = await supabase.auth.verifyOtp({
+          email: state.email,
+          token,
+          type: 'email',
+        });
+        if (error || !data.session) {
+          fail(`Sign-in failed: ${error?.message ?? 'no session returned'}`);
+          return;
+        }
+        state.token = data.session.access_token;
+        const signed = qs<HTMLElement>('[data-signed]');
+        signed.textContent = `Signed in as ${state.email}.`;
+        signed.hidden = false;
+        show('[data-otp-field]', false);
+        show('[data-verify-code]', false);
+        show('[data-send-code]', false);
+        updateBookButton();
+      });
+
+      // ---- Step 3: consent + booking ----
+      const consentBox = qs<HTMLInputElement>('[data-consent]');
+      const bookBtn = qs<HTMLButtonElement>('[data-book-btn]');
+      function updateBookButton() {
+        bookBtn.disabled = !(
+          consentBox.checked &&
+          state.token &&
+          state.selections.size > 0
+        );
+      }
+      consentBox.addEventListener('change', updateBookButton);
+      root.addEventListener('change', updateBookButton);
+
+      bookBtn.addEventListener('click', async () => {
+        clearError();
+        bookBtn.disabled = true;
+        bookBtn.textContent = 'Booking…';
+        try {
+          const res = await fetch('/api/bookings', {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              authorization: `Bearer ${state.token}`,
+            },
+            body: JSON.stringify({
+              lead_id: state.leadId,
+              selections: [...state.selections],
+              consent: true,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error ?? `booking failed (${res.status})`);
+          state.bookingId = data.booking_id;
+          state.order = data.order;
+
+          show('[data-step="pay"]');
+          const note = qs<HTMLElement>('[data-pay-note]');
+          if (data.order.stub) {
+            note.textContent =
+              `Order ${data.order.order_id} created for ` +
+              `₹${(data.order.amount / 100).toFixed(2)} (stub — no real payment ` +
+              `system is connected yet, and no money moves).`;
+            show('[data-simulate]');
+          } else {
+            // REAL MODE: launch Razorpay Checkout here once keys exist —
+            // see docs/wiring-checklist.md ("Go-live: Razorpay").
+            note.textContent =
+              'Real payment keys are configured but Checkout is not wired on this page yet — see docs/wiring-checklist.md.';
+          }
+          qs<HTMLElement>('[data-step="pay"]').scrollIntoView({ block: 'center' });
+        } catch (err) {
+          fail(err instanceof Error ? err.message : 'Booking failed.');
+          bookBtn.disabled = false;
+          bookBtn.textContent = 'Book and pay →';
+        }
+      });
+
+      // ---- Stub payment simulation (server verifies the signed webhook) ----
+      qs<HTMLButtonElement>('[data-simulate]').addEventListener('click', async () => {
+        clearError();
+        const btn = qs<HTMLButtonElement>('[data-simulate]');
+        btn.disabled = true;
+        btn.textContent = 'Simulating…';
+        try {
+          const res = await fetch('/api/dev/simulate-payment', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ order_id: state.order?.order_id }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.simulated) {
+            throw new Error(data.error ?? 'simulation failed');
+          }
+          location.href = `/book/confirmed/?booking=${state.bookingId}`;
+        } catch (err) {
+          fail(err instanceof Error ? err.message : 'Simulation failed.');
+          btn.disabled = false;
+          btn.textContent = 'Simulate successful payment (stub)';
+        }
+      });
+
+      loadLead();
+    }
+  </script>
+</BaseLayout>
+
+<style is:global>
+  /* Booking island renders into existing markup but also injects option rows
+     via innerHTML, so this block is global; everything is .bk- namespaced. */
+  .bk {
+    max-width: 46rem;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .bk-card {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: clamp(1.5rem, 1rem + 3vw, 2.25rem);
+  }
+
+  .bk-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: var(--space-sm);
+  }
+
+  .bk-q {
+    font-size: var(--text-h3);
+    line-height: var(--leading-heading);
+    color: var(--color-ink);
+    margin-bottom: var(--space-sm);
+  }
+
+  .bk-hint,
+  .bk-note {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    margin-bottom: var(--space-sm);
+  }
+
+  .bk-options {
+    display: grid;
+    gap: 0.625rem;
+  }
+
+  .bk-option {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 0.75rem;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 0.875rem 1.125rem;
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+  }
+
+  .bk-option:hover {
+    border-color: var(--color-steel);
+  }
+
+  .bk-option.is-selected {
+    border-color: var(--color-ink);
+    background: var(--color-track);
+  }
+
+  .bk-option-name {
+    font-weight: var(--weight-body-medium);
+    font-size: var(--text-body-sm);
+    color: var(--color-ink);
+  }
+
+  .bk-option-cat {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    white-space: nowrap;
+  }
+
+  .bk-plan {
+    margin-top: var(--space-sm);
+    font-size: var(--text-body-sm);
+    color: var(--color-body-strong);
+  }
+
+  .bk-fields {
+    display: grid;
+    gap: var(--space-sm);
+    max-width: 26rem;
+    margin-bottom: var(--space-sm);
+  }
+
+  .bk-field label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.375rem;
+  }
+
+  .bk-field input {
+    width: 100%;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-swatch);
+    padding: 0.75rem 1rem;
+    /* 16px minimum: anything smaller triggers iOS Safari's focus zoom. */
+    font-size: 1rem;
+    color: var(--color-ink);
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .bk-field input:focus {
+    border-color: var(--color-steel);
+  }
+
+  .bk-consent {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
+    align-items: start;
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body-strong);
+    margin-bottom: var(--space-md);
+    cursor: pointer;
+  }
+
+  .bk-consent input {
+    margin-top: 0.25rem;
+    accent-color: var(--color-steel);
+  }
+
+  .bk-primary {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    background: var(--color-ink);
+    color: var(--color-paper);
+    border: 1px solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    padding: 0.875rem 1.75rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--duration-fast) var(--ease-out);
+    margin-right: 0.5rem;
+  }
+
+  .bk-primary:hover:not(:disabled) {
+    background: var(--color-steel);
+    border-color: var(--color-steel);
+  }
+
+  .bk-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .bk-signed {
+    margin-top: var(--space-sm);
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-positive);
+  }
+
+  .bk-error {
+    font-size: var(--text-body-sm);
+    color: var(--color-negative);
+  }
+</style>

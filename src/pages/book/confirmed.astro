@@ -1,0 +1,236 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageIntro from '../../components/PageIntro.astro';
+import Section from '../../components/Section.astro';
+
+/**
+ * Part C of the onboarding flow: the post-payment status / reveal screen.
+ * Polls GET /api/bookings/:id (capability uuid) and renders the pipeline:
+ * paid -> discovery call -> routed to an expert. Shows the spec's
+ * "waiting on expert assignment" state whenever no expert is set — no
+ * invented people, ever.
+ */
+const pageTitle = 'Booking confirmed — Solborne & Co.';
+const pageDescription =
+  'Your discovery-call booking status: payment, call, and expert assignment.';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <PageIntro eyebrow="Booked" title="Here's where things stand.">
+    <p>
+      This page tracks your booking: the payment, the discovery call, and the
+      expert your work is routed to. A human reviews the routing before
+      anything is delivered.
+    </p>
+  </PageIntro>
+
+  <Section label="Status">
+    <div class="cf" data-confirmed>
+      <noscript>
+        <p class="cf-note">This status view needs JavaScript.</p>
+      </noscript>
+      <div class="cf-card">
+        <ol class="cf-steps" role="list">
+          <li class="cf-step" data-s="payment">
+            <span class="cf-dot" aria-hidden="true"></span>
+            <div>
+              <p class="cf-step-name">Payment</p>
+              <p class="cf-step-note" data-note="payment">Checking…</p>
+            </div>
+          </li>
+          <li class="cf-step" data-s="call">
+            <span class="cf-dot" aria-hidden="true"></span>
+            <div>
+              <p class="cf-step-name">Discovery call</p>
+              <p class="cf-step-note" data-note="call">—</p>
+            </div>
+          </li>
+          <li class="cf-step" data-s="expert">
+            <span class="cf-dot" aria-hidden="true"></span>
+            <div>
+              <p class="cf-step-name">Your expert</p>
+              <p class="cf-step-note" data-note="expert">Waiting on expert assignment.</p>
+            </div>
+          </li>
+        </ol>
+        <div class="cf-expert" data-expert-card hidden></div>
+        <p class="cf-error" data-error hidden></p>
+      </div>
+      <p class="cf-note">
+        Questions in the meantime? <a href="/contact/">Write to us</a> — a
+        person reads it.
+      </p>
+    </div>
+  </Section>
+
+  <script>
+    const root = document.querySelector<HTMLElement>('[data-confirmed]');
+    if (root) {
+      const bookingId = new URLSearchParams(location.search).get('booking');
+      const note = (key: string) =>
+        root.querySelector<HTMLElement>(`[data-note="${key}"]`)!;
+      const step = (key: string) =>
+        root.querySelector<HTMLElement>(`[data-s="${key}"]`)!;
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+      if (!bookingId) {
+        note('payment').textContent = 'No booking reference in the URL.';
+      } else {
+        let polls = 0;
+        const poll = async () => {
+          polls += 1;
+          try {
+            const res = await fetch(`/api/bookings/${encodeURIComponent(bookingId)}`);
+            if (!res.ok) throw new Error(`status ${res.status}`);
+            const s = await res.json();
+
+            const paid = ['paid', 'call_scheduled', 'call_complete'].includes(s.status);
+            step('payment').classList.toggle('is-done', paid);
+            note('payment').textContent = paid
+              ? 'Confirmed — verified server-side via the signed webhook.'
+              : 'Awaiting confirmation…';
+
+            const callDone = s.call_status === 'completed';
+            const callGoing = s.call_status === 'triggered';
+            step('call').classList.toggle('is-done', callDone);
+            step('call').classList.toggle('is-active', callGoing);
+            note('call').textContent = callDone
+              ? s.needs_human_review
+                ? 'Complete — the routing is being checked by a human before the reveal.'
+                : 'Complete.'
+              : callGoing
+                ? 'Scheduled — the call is on its way.'
+                : 'Starts after payment confirms.';
+
+            const card = root.querySelector<HTMLElement>('[data-expert-card]')!;
+            if (s.expert && s.expert.name) {
+              step('expert').classList.add('is-done');
+              note('expert').textContent = 'Assigned.';
+              card.hidden = false;
+              card.innerHTML =
+                `<p class="cf-expert-name">${esc(s.expert.name)}</p>` +
+                (s.expert.title ? `<p class="cf-expert-title">${esc(s.expert.title)}</p>` : '') +
+                (s.expert.bio ? `<p class="cf-expert-bio">${esc(s.expert.bio)}</p>` : '');
+            } else {
+              note('expert').textContent = 'Waiting on expert assignment.';
+            }
+
+            if (!callDone && polls < 12) setTimeout(poll, 1500);
+          } catch {
+            const err = root.querySelector<HTMLElement>('[data-error]')!;
+            err.textContent =
+              'We could not load the booking status — refresh, or write to us via the contact page.';
+            err.hidden = false;
+          }
+        };
+        poll();
+      }
+    }
+  </script>
+</BaseLayout>
+
+<style is:global>
+  /* Status island fills existing markup + injects the expert card, so this
+     block is global; everything is .cf- namespaced. */
+  .cf {
+    max-width: 40rem;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .cf-card {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: clamp(1.5rem, 1rem + 3vw, 2.25rem);
+  }
+
+  .cf-steps {
+    list-style: none;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .cf-step {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-sm);
+    align-items: start;
+  }
+
+  .cf-dot {
+    display: block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--color-stone);
+    margin-top: 0.375rem;
+    transition: background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .cf-step.is-active .cf-dot {
+    border-color: var(--color-steel);
+  }
+
+  .cf-step.is-done .cf-dot {
+    background: var(--color-positive);
+    border-color: var(--color-positive);
+  }
+
+  .cf-step-name {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--text-h3);
+    line-height: var(--leading-heading);
+    color: var(--color-ink);
+  }
+
+  .cf-step-note {
+    margin-top: 0.25rem;
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+  }
+
+  .cf-expert {
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: var(--border-hairline);
+  }
+
+  .cf-expert-name {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--text-h3);
+    color: var(--color-ink);
+  }
+
+  .cf-expert-title {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-top: 0.25rem;
+  }
+
+  .cf-expert-bio {
+    margin-top: 0.5rem;
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+  }
+
+  .cf-error {
+    margin-top: var(--space-sm);
+    font-size: var(--text-body-sm);
+    color: var(--color-negative);
+  }
+
+  .cf-note {
+    font-size: var(--text-body-sm);
+    color: var(--color-body);
+  }
+</style>
