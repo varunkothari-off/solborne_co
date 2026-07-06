@@ -128,9 +128,9 @@ them:
    folder (internal brand ground-truth, Phase 0 research, cost model,
    trademark filings, `architecture-and-api-spec.md`) are **gitignored on
    purpose** and never pushed. If you want any of them versioned, move them
-   to a private docs repo rather than un-ignoring them here. Note the GitHub
-   repo name is `salborne_co` (an apparent typo of "solborne") — worth
-   renaming before anything public points at it.
+   to a private docs repo rather than un-ignoring them here. (The GitHub
+   repo has been renamed to `solborne_co`; the old `salborne_co.` name
+   still redirects. Note the repo is public.)
 8. **Phase 3 scope** — `architecture-and-api-spec.md` describes the full
    diagnostic/booking/payments product (Supabase, Razorpay, ElevenLabs).
    That is deliberately **not** built here (this task was the static site,
