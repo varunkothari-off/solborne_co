@@ -19,20 +19,16 @@ interface Props {
 
 const { study } = Astro.props;
 
-/* DRAFT COPY */
-const pageTitle = `${study.name} — Case Study (coming soon) — Solborne & Co.`;
-/* DRAFT COPY */
+const pageTitle = `${study.name} — Case study (coming soon) — Solborne & Co.`;
 const pageDescription = `The ${study.name} engagement write-up is in preparation. When published, it will state what we did, what worked, what didn’t, and the numbers.`;
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
-  <!-- DRAFT COPY -->
   <PageIntro eyebrow="Case study" title={study.name}>
     <p>The write-up of this engagement is in preparation.</p>
   </PageIntro>
 
   <Section label="Status">
-    <!-- DRAFT COPY -->
     <div class="stage-panel">
       <p class="coming-tag">Coming soon</p>
       <p class="stage-line">
@@ -45,15 +41,13 @@ const pageDescription = `The ${study.name} engagement write-up is in preparation
   </Section>
 
   <Section label="What to expect" title="What a Solborne write-up will include">
-    <!-- DRAFT COPY -->
     <ul class="include-list" role="list">
-      <li>The scope and the fee band — what was agreed, and what it cost.</li>
+      <li>The question we were asked, and the scope we agreed to.</li>
       <li>What we built or advised, described in plain language.</li>
       <li>The confidence numbers we gave at the time — and how they held up.</li>
       <li>What we’d do differently, stated as plainly as what went right.</li>
     </ul>
 
-    <!-- DRAFT COPY -->
     <div class="cta-row">
       <Button href="/case-studies/" variant="ghost">Back to case studies</Button>
       <Button href="/contact/">Start a conversation</Button>

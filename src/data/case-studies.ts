@@ -1,7 +1,8 @@
 /**
  * Case study registry. Both entries are placeholders awaiting real client
- * write-ups — their pages render a clearly-marked "coming soon" stub.
- * The teaser strings below are DRAFT COPY.
+ * write-ups — their pages render a clearly marked "coming soon" stub with
+ * no engagement specifics. The `sector` values are unconfirmed placeholders
+ * and are not rendered anywhere on the site.
  * When real case studies exist, consider migrating this to an Astro
  * content collection (see README).
  */

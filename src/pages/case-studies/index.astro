@@ -5,15 +5,12 @@ import Section from '../../components/Section.astro';
 import Button from '../../components/Button.astro';
 import { caseStudies } from '../../data/case-studies';
 
-/* DRAFT COPY */
-const pageTitle = 'Case Studies — Solborne & Co.';
-/* DRAFT COPY */
+const pageTitle = 'Case studies — Solborne & Co.';
 const pageDescription =
-  'Engagement write-ups from Solborne & Co. — what we did, what worked, what didn’t, and the numbers. Both write-ups are currently in preparation.';
+  'Engagement write-ups from Solborne & Co. — what we did, what worked, what didn’t, and the numbers. Both write-ups are in preparation.';
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
-  <!-- DRAFT COPY -->
   <PageIntro eyebrow="Case studies" title="The work, shown plainly.">
     <p>
       A case study should read like a working file, not a brochure. When we
@@ -31,7 +28,6 @@ const pageDescription =
       {
         caseStudies.map((study) => (
           <article class="card">
-            <!-- DRAFT COPY -->
             <p class="tag">Case study — in preparation</p>
             <h2>{study.name}</h2>
             <p class="teaser">{study.teaser}</p>
@@ -45,15 +41,14 @@ const pageDescription =
   </Section>
 
   <Section label="A note on publishing">
-    <!-- DRAFT COPY -->
     <p class="note">
       Two rules govern this page. We publish an engagement only with the
-      client’s consent — their story stays theirs to tell first. And we publish
-      misses alongside wins: steady in either direction, the same level read
-      whether the numbers flatter us or not.
+      client’s consent — the story, and the credit, stay theirs. And we publish
+      misses alongside wins: we own the quality and honesty of our work, not
+      outcomes we can’t control, so you get the same level read whether the
+      numbers flatter us or not. Steady in either direction.
     </p>
 
-    <!-- DRAFT COPY -->
     <div class="cta">
       <Button href="/contact/" variant="ghost">
         Talk to us about your situation
