@@ -5,11 +5,15 @@ import Section from '../components/Section.astro';
 import Button from '../components/Button.astro';
 import { services } from '../data/services';
 
+// PLACEHOLDER: points at Contact until the real diagnostic flow ships.
+// Re-point this one constant when the diagnostic page exists.
+const diagnosticHref = '/contact/';
+
 /* DRAFT COPY */
 const pageTitle = 'Services — Solborne & Co.';
 /* DRAFT COPY */
 const pageDescription =
-  'Six AI services at flat, public prices — from a free diagnostic to a full readiness assessment. Fixed scope, human-checked, the same care at every price.';
+  'Six AI services, from a free diagnostic to a full readiness assessment. Fixed scope, flat fees, human-checked work — the same care at every price.';
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
@@ -26,8 +30,17 @@ const pageDescription =
   </PageIntro>
 
   <!-- DRAFT COPY -->
-  <Section label="The catalog" title="Six services, priced in plain sight.">
+  <Section label="The catalog" title="Six services, ready today.">
     <!-- DRAFT COPY -->
+    <!-- ============================================================
+         PRICING GATE (deliberate): no price figures on the site.
+         Where a price used to render, each row now carries a CTA
+         toward the free diagnostic.
+         PLACEHOLDER LINK TARGET: the diagnostic flow does not exist
+         yet as a real page, so the CTA points at /contact/ for now.
+         When the diagnostic page ships, re-point `diagnosticHref`
+         here (one place) and the whole catalog follows.
+         ============================================================ -->
     <div class="catalog">
       {
         services.map((service) => (
@@ -44,7 +57,13 @@ const pageDescription =
                 ))}
               </ul>
             </div>
-            <p class="price">{service.price}</p>
+            <p class="row-cta">
+              <a href={diagnosticHref}>
+                {service.slug === 'diagnostic' ? 'Start here' : 'Start with the free diagnostic'}
+                <span class="visually-hidden"> — {service.name}</span>
+                <span aria-hidden="true"> &rarr;</span>
+              </a>
+            </p>
           </article>
         ))
       }
@@ -56,9 +75,10 @@ const pageDescription =
     <!-- DRAFT COPY -->
     <div class="prose">
       <p>
-        Every engagement starts with a fixed scope and a flat fee, both stated before any
-        work begins. The price on this page is the price you pay — no meter running, no
-        surprise line items at the end.
+        Every engagement starts with a fixed scope and a flat fee, both stated in writing
+        before any work begins. The fee we quote is the fee you pay — no meter running, no
+        surprise line items at the end. The diagnostic is where every engagement starts,
+        and it costs nothing.
       </p>
       <p>
         Every paid deliverable is checked by a human before it reaches you — AI does a
@@ -106,7 +126,7 @@ const pageDescription =
 
   .row {
     display: grid;
-    grid-template-columns: 220px 1fr 110px;
+    grid-template-columns: 220px 1fr 150px;
     gap: var(--space-md);
     padding: 1.375rem var(--space-md);
     border-top: var(--border-hairline);
@@ -169,13 +189,26 @@ const pageDescription =
     color: var(--color-positive);
   }
 
-  .price {
-    font-family: var(--font-mono);
-    font-weight: var(--weight-mono-medium);
-    font-size: var(--text-body);
-    color: var(--color-steel);
+  /* Where the price used to sit: the diagnostic CTA, mono + Steel. */
+  .row-cta {
     text-align: right;
     padding-top: 0.1875rem;
+  }
+
+  .row-cta a {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono-medium);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-steel);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .row-cta a:hover {
+    border-bottom-color: var(--color-steel);
   }
 
   @media (max-width: 760px) {
@@ -184,7 +217,7 @@ const pageDescription =
       gap: var(--space-xs);
     }
 
-    .price {
+    .row-cta {
       text-align: left;
       padding-top: 0;
     }

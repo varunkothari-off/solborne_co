@@ -69,10 +69,7 @@ const steps = [
         highlights.map((s) => (
           <article class:list={['card', { flagship: s.flagship }]}>
             <h3>{s.name}</h3>
-            <p class="price">
-              {s.price}
-              <span class="price-note">{s.priceNote}</span>
-            </p>
+            <p class="price-note">{s.priceNote}</p>
             <p class="summary">{s.summary}</p>
           </article>
         ))
@@ -190,22 +187,14 @@ const steps = [
     margin-bottom: 0.625rem;
   }
 
-  .price {
-    font-family: var(--font-mono);
-    font-weight: var(--weight-mono-medium);
-    font-size: var(--text-body-sm);
-    color: var(--color-steel);
-    margin-bottom: 0.875rem;
-  }
-
   .price-note {
-    display: inline-block;
-    margin-left: var(--space-2xs);
+    font-family: var(--font-mono);
     font-size: var(--text-tag);
     font-weight: var(--weight-mono);
     letter-spacing: var(--tracking-tag);
     text-transform: uppercase;
     color: var(--color-stone);
+    margin-bottom: 0.875rem;
   }
 
   .summary {
