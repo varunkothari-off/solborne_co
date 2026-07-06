@@ -29,6 +29,6 @@ export const caseStudies: CaseStudy[] = [
     sector: 'Placeholder sector — to be confirmed',
     status: 'coming-soon',
     teaser:
-      'A full write-up of this engagement is in preparation. It will follow the same rule as our advice: what we did, what worked, what didn’t, and the numbers — plainly stated.',
+      'This write-up is in preparation. Like everything we publish, it goes out only with the client’s consent — and it will include the misses alongside the wins.',
   },
 ];

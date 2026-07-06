@@ -19,7 +19,7 @@ interface Props {
 
 const { study } = Astro.props;
 
-const pageTitle = `${study.name} — Case study (coming soon) — Solborne & Co.`;
+const pageTitle = `${study.name} — Case study (in preparation) — Solborne & Co.`;
 const pageDescription = `The ${study.name} engagement write-up is in preparation. When published, it will state what we did, what worked, what didn’t, and the numbers.`;
 ---
 
@@ -30,13 +30,12 @@ const pageDescription = `The ${study.name} engagement write-up is in preparation
 
   <Section label="Status">
     <div class="stage-panel">
-      <p class="coming-tag">Coming soon</p>
+      <p class="coming-tag">In preparation</p>
       <p class="stage-line">
         The full write-up is being prepared. It will state plainly what we
         did, what worked, what didn’t, and the numbers — and nothing is
         published without the client’s sign-off.
       </p>
-      <p class="stage-teaser">{study.teaser}</p>
     </div>
   </Section>
 
@@ -86,14 +85,6 @@ const pageDescription = `The ${study.name} engagement write-up is in preparation
     color: var(--color-ink);
     max-width: 44ch;
     margin: 0 auto var(--space-md);
-  }
-
-  .stage-teaser {
-    font-size: var(--text-body-sm);
-    line-height: var(--leading-tight);
-    color: var(--color-body);
-    max-width: 56ch;
-    margin: 0 auto;
   }
 
   /* ---- What the write-up will include ---- */
