@@ -5,17 +5,13 @@ import Section from '../components/Section.astro';
 import { site } from '../data/site';
 import { services } from '../data/services';
 
-/* DRAFT COPY */
 const pageTitle = 'Contact — Solborne & Co.';
-/* DRAFT COPY */
 const pageDescription =
   "Tell us where you are with AI and we'll give you an honest first read. If we're not the right fit, we'll say so and point you somewhere better.";
-/* DRAFT COPY */
 const notSureOption = 'Not sure yet — just talking';
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
-  <!-- DRAFT COPY -->
   <PageIntro eyebrow="Contact" title="It starts with a conversation.">
     <p>
       Tell us where you are with AI — what you're weighing, what you've tried, what you're
@@ -47,9 +43,7 @@ const notSureOption = 'Not sure yet — just talking';
              once a real endpoint exists. -->
         <noscript>
           <div class="noscript-notice">
-            <!-- DRAFT COPY -->
             <p class="notice-label mono">JavaScript is off</p>
-            <!-- DRAFT COPY -->
             <p>
               This form needs JavaScript and isn't connected to anything yet, so it can't
               send your message. Please email us directly at
@@ -94,7 +88,6 @@ const notSureOption = 'Not sure yet — just talking';
         </noscript>
 
         <form id="contact-form" aria-label="Contact form">
-          <!-- DRAFT COPY -->
           <div class="field">
             <label for="contact-name">Name</label>
             <input
@@ -106,7 +99,6 @@ const notSureOption = 'Not sure yet — just talking';
             />
           </div>
 
-          <!-- DRAFT COPY -->
           <div class="field">
             <label for="contact-email">Email</label>
             <input
@@ -118,7 +110,6 @@ const notSureOption = 'Not sure yet — just talking';
             />
           </div>
 
-          <!-- DRAFT COPY -->
           <div class="field">
             <label for="contact-firm">
               Firm / organization <span class="optional">(optional)</span>
@@ -131,7 +122,6 @@ const notSureOption = 'Not sure yet — just talking';
             />
           </div>
 
-          <!-- DRAFT COPY -->
           <div class="field">
             <label for="contact-need">What do you need?</label>
             <select id="contact-need" name="need">
@@ -140,14 +130,12 @@ const notSureOption = 'Not sure yet — just talking';
             </select>
           </div>
 
-          <!-- DRAFT COPY -->
           <div class="field">
             <label for="contact-message">Message</label>
             <textarea id="contact-message" name="message" rows="6" required></textarea>
           </div>
 
-          <!-- DRAFT COPY -->
-          <p class="reply-note mono">We reply within two business days.</p>
+          <p class="reply-note mono">We aim to reply within two business days.</p>
 
           <button class="submit" type="submit">Send message</button>
         </form>
@@ -157,9 +145,7 @@ const notSureOption = 'Not sure yet — just talking';
              script moves focus here on reveal, which announces the notice to
              assistive tech — no live region needed. -->
         <div id="form-notice" class="form-notice" tabindex="-1" hidden>
-          <!-- DRAFT COPY -->
           <p class="notice-label mono">Not connected yet</p>
-          <!-- DRAFT COPY -->
           <p>
             This form isn't wired to anything yet, so your message wasn't sent. Please email
             us directly at <a class="email-link" href={`mailto:${site.email}`}>{site.email}</a>
@@ -170,7 +156,6 @@ const notSureOption = 'Not sure yet — just talking';
 
       <aside class="sidebar" aria-label="Other ways to reach us">
         <article class="side-card">
-          <!-- DRAFT COPY -->
           <h2>Prefer email?</h2>
           <p>
             Skip the form entirely. Write to us at
@@ -180,7 +165,6 @@ const notSureOption = 'Not sure yet — just talking';
         </article>
 
         <article class="side-card">
-          <!-- DRAFT COPY -->
           <h2>What happens next</h2>
           <ol class="next-list" role="list">
             <li>We read your note. A person does, not a pipeline.</li>
@@ -192,10 +176,9 @@ const notSureOption = 'Not sure yet — just talking';
           </ol>
         </article>
 
-        <!-- DRAFT COPY -->
         <p class="side-note">
           Not sure what to ask for? The <a href="/services/">free diagnostic</a> is the usual
-          starting point — eight plain questions and an honest first read, no call attached.
+          starting point — eight plain questions, no call attached.
         </p>
       </aside>
     </div>
