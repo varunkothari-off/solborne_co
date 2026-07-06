@@ -4,19 +4,25 @@ import PageIntro from '../../components/PageIntro.astro';
 import Section from '../../components/Section.astro';
 import Button from '../../components/Button.astro';
 import { caseStudies } from '../../data/case-studies';
+import type { CaseStudy } from '../../data/case-studies';
 
-const study = caseStudies.find((entry) => entry.slug === 'kothari-financial-services');
-if (!study) {
-  throw new Error(
-    'Case study "kothari-financial-services" is missing from src/data/case-studies.ts'
-  );
+export function getStaticPaths() {
+  return caseStudies.map((study) => ({
+    params: { slug: study.slug },
+    props: { study },
+  }));
 }
 
+interface Props {
+  study: CaseStudy;
+}
+
+const { study } = Astro.props;
+
 /* DRAFT COPY */
-const pageTitle = 'Kothari Financial Services — Case Study (coming soon) — Solborne & Co.';
+const pageTitle = `${study.name} — Case Study (coming soon) — Solborne & Co.`;
 /* DRAFT COPY */
-const pageDescription =
-  'The Kothari Financial Services engagement write-up is in preparation. When published, it will state what we did, what worked, what didn’t, and the numbers.';
+const pageDescription = `The ${study.name} engagement write-up is in preparation. When published, it will state what we did, what worked, what didn’t, and the numbers.`;
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
@@ -40,7 +46,7 @@ const pageDescription =
 
   <Section label="What to expect" title="What a Solborne write-up will include">
     <!-- DRAFT COPY -->
-    <ul class="include-list">
+    <ul class="include-list" role="list">
       <li>The scope and the fee band — what was agreed, and what it cost.</li>
       <li>What we built or advised, described in plain language.</li>
       <li>The confidence numbers we gave at the time — and how they held up.</li>
@@ -112,7 +118,7 @@ const pageDescription =
   }
 
   .include-list li::before {
-    content: '+';
+    content: '+' / '';
     position: absolute;
     left: 0;
     top: 0;
