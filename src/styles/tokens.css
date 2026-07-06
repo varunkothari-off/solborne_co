@@ -115,10 +115,16 @@
   /* ---- Borders ---- */
   --border-hairline: 1px solid var(--color-line);
 
-  /* ---- Motion ---- */
+  /* ---- Motion ----
+     Restraint is the brand: small distances, quiet easings, nothing
+     cinematic. Reveals are disabled entirely under prefers-reduced-motion
+     (see global.css) and without JavaScript. */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --duration-fast: 150ms;
   --duration-base: 250ms;
+  --duration-reveal: 600ms;
+  --reveal-distance: 14px;
+  --reveal-tracking: 0.02em; /* headings settle from this to 0 on reveal */
 
   /* ---- Breakpoints (reference only — CSS custom properties cannot be
        used in @media queries; keep these in sync manually) ----

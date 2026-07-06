@@ -162,6 +162,49 @@ select {
   border: 0;
 }
 
+/* ---- Scroll reveals (progressive enhancement) ----
+   The `reveal-ready` class is added to <html> by the small inline script in
+   BaseLayout — only when JavaScript runs AND prefers-reduced-motion is not
+   set. Without it, nothing is ever hidden. Elements already in the viewport
+   at load are pre-marked `is-revealed` before the class lands, so nothing
+   above the fold flashes; only sections scrolled into view animate. */
+html.reveal-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(var(--reveal-distance));
+  transition:
+    opacity var(--duration-reveal) var(--ease-out),
+    transform var(--duration-reveal) var(--ease-out);
+}
+
+html.reveal-ready [data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* Typographic settle: serif section headings ease from a slightly open
+   tracking and lighter weight into their resting state as the section
+   reveals. Subtle by design — the type arrives, it does not perform. */
+html.reveal-ready [data-reveal] h2 {
+  transition:
+    letter-spacing var(--duration-reveal) var(--ease-out),
+    font-weight var(--duration-reveal) var(--ease-out);
+}
+
+html.reveal-ready [data-reveal]:not(.is-revealed) h2 {
+  letter-spacing: var(--reveal-tracking);
+  font-weight: 460;
+}
+
+/* Belt and braces: if reveal-ready ever lands alongside reduced motion,
+   content stays fully visible and static. */
+@media (prefers-reduced-motion: reduce) {
+  html.reveal-ready [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* Skip link */
 .skip-link {
   position: absolute;

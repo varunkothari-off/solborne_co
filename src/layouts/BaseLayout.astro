@@ -42,5 +42,45 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <slot />
     </main>
     <Footer />
+
+    <!-- Scroll reveals: minimal vanilla IntersectionObserver, same scale as
+         the mobile-nav toggle. No library, no dependency, no external
+         request. Skipped entirely under prefers-reduced-motion and without
+         JavaScript (content is then simply visible — see global.css). -->
+    <script is:inline>
+      (function () {
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        if (!('IntersectionObserver' in window)) return;
+        var els = Array.prototype.slice.call(document.querySelectorAll('[data-reveal]'));
+        if (!els.length) return;
+
+        // Pre-reveal anything already in view so nothing above the fold
+        // hides and re-appears — reveals are scroll-triggered only.
+        var vh = window.innerHeight;
+        els.forEach(function (el) {
+          if (el.getBoundingClientRect().top < vh * 0.92) {
+            el.classList.add('is-revealed');
+          }
+        });
+
+        document.documentElement.classList.add('reveal-ready');
+
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-revealed');
+                io.unobserve(entry.target);
+              }
+            });
+          },
+          { rootMargin: '0px 0px -8% 0px', threshold: 0 }
+        );
+
+        els.forEach(function (el) {
+          if (!el.classList.contains('is-revealed')) io.observe(el);
+        });
+      })();
+    </script>
   </body>
 </html>
