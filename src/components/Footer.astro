@@ -1,6 +1,7 @@
 ---
 import Mark from './Mark.astro';
 import Wordmark from './Wordmark.astro';
+import { site } from '../data/site';
 
 const year = new Date().getFullYear();
 ---
@@ -11,10 +12,10 @@ const year = new Date().getFullYear();
       <Mark size={54} label="" />
     </div>
     <p class="wm"><Wordmark /></p>
-    <p class="tagline">Clear judgment about AI, within reach</p>
+    <p class="tagline">{site.tagline}</p>
 
     <nav aria-label="Footer">
-      <ul>
+      <ul role="list">
         <li><a href="/services/">Services</a></li>
         <li><a href="/approach/">Approach</a></li>
         <li><a href="/case-studies/">Case Studies</a></li>

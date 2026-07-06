@@ -39,6 +39,60 @@ const notSureOption = 'Not sure yet — just talking';
              intercepts submit and shows the fallback notice instead of
              sending anything. Delete it when the real endpoint exists.
              ============================================================ -->
+
+        <!-- No-JS fallback — without JavaScript the placeholder handler never
+             runs, and the form has no action, so a submit would GET this same
+             page and silently drop the message. Show a notice and hide the
+             submit button instead. Delete alongside the placeholder script
+             once a real endpoint exists. -->
+        <noscript>
+          <div class="noscript-notice">
+            <!-- DRAFT COPY -->
+            <p class="notice-label mono">JavaScript is off</p>
+            <!-- DRAFT COPY -->
+            <p>
+              This form needs JavaScript and isn't connected to anything yet, so it can't
+              send your message. Please email us directly at
+              <a class="email-link" href={`mailto:${site.email}`}>{site.email}</a>
+              — a human will read it and reply.
+            </p>
+          </div>
+          <style is:inline>
+            /* Hide the submit button so no-JS visitors can't post into the void. */
+            #contact-form .submit {
+              display: none;
+            }
+            /* Minimal duplicate of the scoped .form-notice look — Astro's
+               scoped styles don't reliably reach inside <noscript>, so the
+               same tokens are restated here. */
+            .noscript-notice {
+              margin-bottom: var(--space-md);
+              background: var(--color-panel);
+              border: var(--border-hairline);
+              border-radius: var(--radius-card);
+              padding: 1.25rem 1.5rem;
+            }
+            .noscript-notice .notice-label {
+              font-size: var(--text-tag);
+              letter-spacing: var(--tracking-tag);
+              text-transform: uppercase;
+              color: var(--color-stone);
+              margin-bottom: var(--space-2xs);
+            }
+            .noscript-notice p:not(.notice-label) {
+              font-size: var(--text-body-sm);
+              line-height: var(--leading-tight);
+              color: var(--color-body);
+            }
+            .noscript-notice .email-link {
+              font-family: var(--font-mono);
+              font-weight: var(--weight-mono);
+              color: var(--color-steel);
+              overflow-wrap: anywhere;
+            }
+          </style>
+        </noscript>
+
         <form id="contact-form" aria-label="Contact form">
           <!-- DRAFT COPY -->
           <div class="field">
@@ -99,8 +153,10 @@ const notSureOption = 'Not sure yet — just talking';
         </form>
 
         <!-- Fallback notice — revealed by the placeholder script below when
-             someone submits the not-yet-wired form. Hidden by default. -->
-        <div id="form-notice" class="form-notice" aria-live="polite" tabindex="-1" hidden>
+             someone submits the not-yet-wired form. Hidden by default. The
+             script moves focus here on reveal, which announces the notice to
+             assistive tech — no live region needed. -->
+        <div id="form-notice" class="form-notice" tabindex="-1" hidden>
           <!-- DRAFT COPY -->
           <p class="notice-label mono">Not connected yet</p>
           <!-- DRAFT COPY -->
@@ -126,7 +182,7 @@ const notSureOption = 'Not sure yet — just talking';
         <article class="side-card">
           <!-- DRAFT COPY -->
           <h2>What happens next</h2>
-          <ol class="next-list">
+          <ol class="next-list" role="list">
             <li>We read your note. A person does, not a pipeline.</li>
             <li>A human replies — no automated pitch sequence, no drip campaign.</li>
             <li>
@@ -232,6 +288,7 @@ const notSureOption = 'Not sure yet — just talking';
     background: var(--color-ink);
     color: var(--color-paper);
     border: 1px solid var(--color-ink);
+    text-align: center;
     cursor: pointer;
     transition:
       background var(--duration-fast) var(--ease-out),
@@ -320,7 +377,7 @@ const notSureOption = 'Not sure yet — just talking';
   }
 
   .next-list li::before {
-    content: counter(step, decimal-leading-zero);
+    content: counter(step, decimal-leading-zero) / '';
     font-family: var(--font-mono);
     font-weight: var(--weight-mono);
     font-size: var(--text-tag);

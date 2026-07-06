@@ -6,9 +6,9 @@ import Button from '../components/Button.astro';
 import ConfidenceBar from '../components/ConfidenceBar.astro';
 import { services, type Service } from '../data/services';
 import { caseStudies } from '../data/case-studies';
+import { site } from '../data/site';
 
-/* DRAFT COPY */
-const pageTitle = 'Solborne & Co. — Clear judgment about AI, within reach';
+const pageTitle = `${site.name} — ${site.tagline}`;
 /* DRAFT COPY */
 const pageDescription =
   'Independent AI advisory for small firms and growing practices. Rigorous, human-checked answers about AI in plain language, at prices within reach.';
@@ -23,16 +23,21 @@ const highlights = highlightSlugs
 const steps = [
   {
     num: '01',
-    name: 'Diagnose',
-    text: 'Plain questions about how work actually moves through your firm, and an honest first read — including where AI is not worth your attention.',
+    name: 'Ask',
+    text: 'Eight plain questions about how work actually moves through your firm, and an honest first read — including where AI is not worth your attention.',
   },
   {
     num: '02',
-    name: 'Verify',
-    text: 'A human checks every answer before it reaches you. Confidence gets a number, not a shrug — you see how sure we are, and why.',
+    name: 'Answer',
+    text: 'Rigorous work in plain language. No jargon-mystique, no deck built to impress rather than inform.',
   },
   {
     num: '03',
+    name: 'Verify',
+    text: 'Every paid deliverable is checked by a human before it reaches you. Confidence gets a number, not a shrug — you see how sure we are, and why.',
+  },
+  {
+    num: '04',
     name: 'Hand over',
     text: 'We hand you the reins: the roadmap, the keys, the training to run it yourself. The decision — and the credit — stay with you.',
   },
@@ -44,9 +49,9 @@ const steps = [
   <PageIntro eyebrow="Independent AI advisory" title="Clear judgment about AI, within reach.">
     <p>
       Solborne &amp; Co. answers the AI questions that used to require an expensive
-      consultant — rigorously, in plain language, and checked by a human before anything
-      reaches you. Built for small firms, solo practices, and growing brands priced out
-      of the big consultancies.
+      consultant — rigorously and in plain language, with every paid deliverable
+      checked by a human before it reaches you. Built for small firms, solo practices,
+      and growing brands priced out of the big consultancies.
     </p>
   </PageIntro>
 
@@ -85,7 +90,7 @@ const steps = [
     </p>
     <div class="how-grid">
       <!-- DRAFT COPY -->
-      <ol class="steps">
+      <ol class="steps" role="list">
         {
           steps.map((step) => (
             <li class="step">

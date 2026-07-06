@@ -36,7 +36,7 @@ const pageDescription =
             <h2>{study.name}</h2>
             <p class="teaser">{study.teaser}</p>
             <a class="card-link" href={`/case-studies/${study.slug}/`}>
-              Read the placeholder <span aria-hidden="true">→</span>
+              Read the placeholder<span class="visually-hidden"> — {study.name}</span> <span aria-hidden="true">→</span>
             </a>
           </article>
         ))

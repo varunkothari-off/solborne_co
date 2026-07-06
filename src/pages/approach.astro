@@ -26,7 +26,7 @@ const stages = [
   {
     num: '03',
     name: 'Verify',
-    text: 'A human checks every answer before it reaches you — always. Verification isn’t a premium tier; it’s a standing step in the method.',
+    text: 'Every paid deliverable is checked by a human before it reaches you — always. Verification isn’t a premium tier; it’s a standing step in the method.',
   },
   {
     num: '04',
@@ -107,8 +107,8 @@ const wontList = [
         <p>
           Nobody has mastered AI, us included. In a field this new, naming the
           edges of our knowledge is the most useful thing we can do. That's why
-          we publish the uncomfortable numbers too — a 55 you can plan around
-          is worth more than a 95 you can't trust.
+          we publish the uncomfortable numbers too — a <span class="fig">55</span> you can plan around
+          is worth more than a <span class="fig">95</span> you can't trust.
         </p>
       </div>
       <div class="conf-stack">
@@ -215,6 +215,13 @@ const wontList = [
     margin-top: var(--space-sm);
   }
 
+  .fig {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono-medium);
+    color: var(--color-steel);
+    font-size: 0.9em;
+  }
+
   .conf-stack {
     display: grid;
     gap: var(--space-md);
@@ -265,12 +272,12 @@ const wontList = [
   }
 
   .will li::before {
-    content: '+';
+    content: '+' / '';
     color: var(--color-positive);
   }
 
   .wont li::before {
-    content: '\2013';
+    content: '\2013' / '';
     color: var(--color-negative);
   }
 

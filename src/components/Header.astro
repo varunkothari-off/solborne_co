@@ -10,8 +10,11 @@ const navItems = [
 ];
 
 const currentPath = Astro.url.pathname.replace(/\/?$/, '/');
-const isCurrent = (href: string) =>
-  href === '/' ? currentPath === '/' : currentPath.startsWith(href);
+const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
+  if (currentPath === href) return 'page';
+  if (href !== '/' && currentPath.startsWith(href)) return 'true';
+  return undefined;
+};
 ---
 
 <header class="site-header">
@@ -33,14 +36,11 @@ const isCurrent = (href: string) =>
     </button>
 
     <nav id="site-nav" class="site-nav" aria-label="Main">
-      <ul>
+      <ul role="list">
         {
           navItems.map((item) => (
             <li>
-              <a
-                href={item.href}
-                aria-current={isCurrent(item.href) ? 'page' : undefined}
-              >
+              <a href={item.href} aria-current={ariaCurrent(item.href)}>
                 {item.label}
               </a>
             </li>
@@ -50,7 +50,7 @@ const isCurrent = (href: string) =>
           <a
             class="contact-cta"
             href="/contact/"
-            aria-current={isCurrent('/contact/') ? 'page' : undefined}
+            aria-current={ariaCurrent('/contact/')}
           >
             Contact
           </a>
@@ -113,7 +113,7 @@ const isCurrent = (href: string) =>
     color: var(--color-ink);
   }
 
-  .site-nav a[aria-current='page'] {
+  .site-nav a[aria-current] {
     color: var(--color-ink);
     border-bottom-color: var(--color-ink);
   }
@@ -128,7 +128,7 @@ const isCurrent = (href: string) =>
   }
 
   .site-nav .contact-cta:hover,
-  .site-nav .contact-cta[aria-current='page'] {
+  .site-nav .contact-cta[aria-current] {
     background: var(--color-steel);
     border-color: var(--color-steel);
     color: var(--color-paper);
@@ -175,7 +175,7 @@ const isCurrent = (href: string) =>
       flex-direction: column;
       align-items: stretch;
       gap: 0;
-      padding: var(--space-sm) var(--gutter-narrow) var(--space-md);
+      padding: var(--space-sm) var(--gutter) var(--space-md);
     }
 
     .site-nav a {
@@ -184,7 +184,7 @@ const isCurrent = (href: string) =>
       border-bottom: none;
     }
 
-    .site-nav a[aria-current='page'] {
+    .site-nav a[aria-current] {
       border-bottom: none;
       color: var(--color-ink);
     }
@@ -201,6 +201,13 @@ const isCurrent = (href: string) =>
 
     .nav-toggle[aria-expanded='true'] .nav-toggle-bar:last-child {
       transform: translateY(-4px) rotate(-45deg);
+    }
+  }
+
+  /* Mirrors global.css .wrap: narrow gutter below 760px. */
+  @media (max-width: 760px) {
+    .site-nav ul {
+      padding-inline: var(--gutter-narrow);
     }
   }
 </style>

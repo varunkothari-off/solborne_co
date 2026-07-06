@@ -17,7 +17,7 @@ const pageDescription =
   <PageIntro eyebrow="Services" title="A small, sharp set of services, done well.">
     <p>
       We productized the work: fixed scope, a flat price you see before we start, and every
-      deliverable checked by a human before it reaches you.
+      paid deliverable checked by a human before it reaches you.
     </p>
     <p>
       Priced so a five-person firm and a five-hundred-person firm can walk through the same
@@ -38,7 +38,7 @@ const pageDescription =
             </div>
             <div class="row-body">
               <p class="summary">{service.summary}</p>
-              <ul class="deliverables">
+              <ul class="deliverables" role="list">
                 {service.deliverables.map((item) => (
                   <li>{item}</li>
                 ))}
@@ -61,9 +61,10 @@ const pageDescription =
         surprise line items at the end.
       </p>
       <p>
-        Every deliverable is checked by a human before it reaches you. AI does a share of
-        the work — that is the point — but nothing leaves this firm on a model's word
-        alone.
+        Every paid deliverable is checked by a human before it reaches you — AI does a
+        share of the work, but nothing you pay for leaves this firm on a model's word
+        alone. The one exception is the free diagnostic, which is automated; that is what
+        makes it free.
       </p>
       <p>
         Every recommendation carries a confidence level — a number, not a shrug. Where we
@@ -159,7 +160,7 @@ const pageDescription =
   }
 
   .deliverables li::before {
-    content: '+';
+    content: '+' / '';
     position: absolute;
     left: 0;
     top: 0;

@@ -22,11 +22,11 @@ export const services: Service[] = [
     slug: 'diagnostic',
     name: 'Free Diagnostic',
     price: '$0',
-    priceNote: 'automated · no call required',
+    priceNote: 'self-serve · no call required',
     summary:
-      'Eight plain questions about your firm and how work actually flows through it. You get an honest first read on where AI is worth your attention — and where it is not.',
+      'Eight plain questions about your firm and how work actually flows through it. You get an honest first read on where AI is worth your attention — and where it is not. The diagnostic is the one thing we don’t hand-check — paid work always is.',
     deliverables: [
-      'A short written read on your situation',
+      'A short written read on your situation — automated, which is what makes it free',
       'The one or two areas worth a closer look',
       'No sales call attached',
     ],
