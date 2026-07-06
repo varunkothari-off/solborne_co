@@ -3,6 +3,13 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageIntro from '../../components/PageIntro.astro';
 import Section from '../../components/Section.astro';
 import { roadmap } from '../../data/roadmap';
+import { stubMode } from '../../lib/env';
+
+// Rendered per-request so the stub state is known at load — real visitors
+// must be told plainly that no real payment or call happens yet, before they
+// hand over an email or consent to anything.
+export const prerender = false;
+const previewMode = stubMode.razorpay || stubMode.elevenlabs;
 
 /**
  * Part B of the onboarding flow: book the paid discovery call.
@@ -40,6 +47,20 @@ const pageDescription =
 
   <Section label="Booking">
     <div class="bk" data-book>
+      {
+        previewMode && (
+          <div class="bk-preview" role="note">
+            <p class="bk-preview-label">Preview mode</p>
+            <p>
+              The booking flow is fully working, but payment and the discovery
+              call aren't connected to live services yet — no money moves and
+              no call is placed. You can walk the whole flow to see how it
+              works. To actually engage us now, <a href="/contact/">write to
+              us</a> and a person will reply.
+            </p>
+          </div>
+        )
+      }
       <noscript>
         <p class="bk-note">
           Booking needs JavaScript. You can also
@@ -91,10 +112,9 @@ const pageDescription =
         <label class="bk-consent">
           <input type="checkbox" data-consent />
           <span>
-            I consent to an automated discovery call: the call is run by a
-            voice AI, recorded, and its transcript is used to route my request
-            to the right expert. A human reviews the outcome before anything
-            is delivered.
+            {previewMode
+              ? 'I understand this is a preview: no payment is taken and no call is placed. When the discovery call goes live, it will be run by a voice AI, recorded, and its transcript used to route my request to the right expert — with a human reviewing the outcome before anything is delivered.'
+              : 'I consent to an automated discovery call: the call is run by a voice AI, recorded, and its transcript is used to route my request to the right expert. A human reviews the outcome before anything is delivered.'}
           </span>
         </label>
         <button type="button" class="bk-primary" data-book-btn disabled>Book and pay &rarr;</button>
@@ -153,6 +173,7 @@ const pageDescription =
         token: null as string | null,
         bookingId: null as string | null,
         order: null as { order_id: string; stub: boolean } | null,
+        booked: false,
       };
 
       // Expose a handle for local testing only (no secrets inside).
@@ -284,11 +305,11 @@ const pageDescription =
       const consentBox = qs<HTMLInputElement>('[data-consent]');
       const bookBtn = qs<HTMLButtonElement>('[data-book-btn]');
       function updateBookButton() {
-        bookBtn.disabled = !(
-          consentBox.checked &&
-          state.token &&
-          state.selections.size > 0
-        );
+        // Once a booking succeeds the button stays disabled — re-clicking must
+        // not create a second booking + order.
+        bookBtn.disabled =
+          state.booked ||
+          !(consentBox.checked && state.token && state.selections.size > 0);
       }
       consentBox.addEventListener('change', updateBookButton);
       root.addEventListener('change', updateBookButton);
@@ -314,6 +335,7 @@ const pageDescription =
           if (!res.ok) throw new Error(data.error ?? `booking failed (${res.status})`);
           state.bookingId = data.booking_id;
           state.order = data.order;
+          state.booked = true; // lock the button against a second submit
 
           show('[data-step="pay"]');
           const note = qs<HTMLElement>('[data-pay-note]');
@@ -332,6 +354,7 @@ const pageDescription =
           qs<HTMLElement>('[data-step="pay"]').scrollIntoView({ block: 'center' });
         } catch (err) {
           fail(err instanceof Error ? err.message : 'Booking failed.');
+          state.booked = false;
           bookBtn.disabled = false;
           bookBtn.textContent = 'Book and pay →';
         }
@@ -380,6 +403,30 @@ const pageDescription =
     border: var(--border-hairline);
     border-radius: var(--radius-card);
     padding: clamp(1.5rem, 1rem + 3vw, 2.25rem);
+  }
+
+  /* Preview-mode banner: the one permitted amber wash surface on this view. */
+  .bk-preview {
+    background: var(--color-bearing-wash);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 1.125rem 1.375rem;
+  }
+
+  .bk-preview p {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body-strong);
+  }
+
+  .bk-preview-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.375rem;
   }
 
   .bk-eyebrow {

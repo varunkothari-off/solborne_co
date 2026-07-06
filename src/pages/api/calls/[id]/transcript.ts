@@ -18,11 +18,23 @@ export const POST: APIRoute = async ({ request, params }) => {
   }
   if (!isUuid(params.id)) return json({ error: 'invalid call id' }, 400);
 
-  const body = (await readJson(request, 48_000)) as {
+  // A full discovery-call transcript can be large; cap generously and report
+  // an oversize body as 413 rather than a misleading "transcript required".
+  const MAX = 1_000_000;
+  const raw = await request.text();
+  if (raw.length > MAX) {
+    return json({ error: 'transcript payload too large' }, 413);
+  }
+  let body: {
     transcript?: unknown;
     routing?: { category?: unknown };
     confidence?: unknown;
   } | null;
+  try {
+    body = JSON.parse(raw);
+  } catch {
+    body = null;
+  }
   if (!body || typeof body.transcript === 'undefined') {
     return json({ error: 'transcript required' }, 400);
   }

@@ -23,14 +23,14 @@ export const POST: APIRoute = async ({ request, params }) => {
   }
 
   try {
+    // Ownership is verified inside the same UPDATE (user_id = auth.uid() AND
+    // id = p_expert_id), so a mismatched URL id updates zero rows and raises
+    // rather than mutating the caller's own availability first.
     const result = await userRpc<{ expert_id: string; available: boolean }>(
       auth.token,
       'set_expert_availability',
-      { p_available: body.available }
+      { p_expert_id: params.id, p_available: body.available }
     );
-    if (result.expert_id !== params.id) {
-      return json({ error: 'not your expert profile' }, 403);
-    }
     return json({ ok: true, ...result });
   } catch (err) {
     return errorResponse(err);

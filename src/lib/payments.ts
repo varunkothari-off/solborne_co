@@ -10,9 +10,23 @@
  * placeholder secret, so the verification code path is exercised end-to-end.
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { envVar, stubMode } from './env';
+import { envVar, realEnv, stubMode } from './env';
 import { razorpayStub } from './stubs/razorpay';
 import { razorpayReal } from './providers/razorpay';
+
+/**
+ * The webhook-secret used for HMAC. In LIVE mode it MUST be a real secret —
+ * a placeholder fails closed (verification returns false, so no payment is
+ * ever trusted) rather than accepting signatures forged with the publicly
+ * committed .env.example placeholder. In stub mode the loopback simulator and
+ * the verifier share whatever secret is set, so the signed-webhook trust path
+ * still runs end-to-end even before a real secret exists.
+ */
+function webhookSecret(): string | undefined {
+  return stubMode.razorpay
+    ? envVar('RAZORPAY_WEBHOOK_SECRET')
+    : realEnv('RAZORPAY_WEBHOOK_SECRET');
+}
 
 export interface CreateOrderInput {
   bookingId: string;
@@ -50,7 +64,7 @@ export function verifyRazorpayWebhookSignature(
   rawBody: string,
   signature: string | null
 ): boolean {
-  const secret = envVar('RAZORPAY_WEBHOOK_SECRET');
+  const secret = webhookSecret();
   if (!secret || !signature) return false;
   const expected = createHmac('sha256', secret).update(rawBody).digest('hex');
   const a = Buffer.from(expected, 'utf8');
@@ -60,7 +74,7 @@ export function verifyRazorpayWebhookSignature(
 
 /** Used by the stub-only payment simulator to produce a valid signature. */
 export function signRazorpayWebhookBody(rawBody: string): string | null {
-  const secret = envVar('RAZORPAY_WEBHOOK_SECRET');
+  const secret = webhookSecret();
   if (!secret) return null;
   return createHmac('sha256', secret).update(rawBody).digest('hex');
 }

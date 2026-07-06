@@ -11,7 +11,7 @@
  *                   stored sha256 hash.
  */
 import { createClient, type SupabaseClient, type User } from '@supabase/supabase-js';
-import { requireEnv, envVar } from './env';
+import { requireEnv, realEnv } from './env';
 
 function baseClient(accessToken?: string): SupabaseClient {
   const url = requireEnv('SUPABASE_URL');
@@ -40,10 +40,17 @@ async function callRpc<T>(
 ): Promise<T> {
   const { data, error } = await client.rpc(fn, args);
   if (error) {
-    // Map the common in-database error codes onto HTTP statuses.
-    const status =
-      error.code === '42501' ? 403 : error.code === '22023' ? 400 : 500;
-    throw new RpcError(error.message, status);
+    // Map the common in-database error codes onto HTTP statuses. 42501 and
+    // 22023/22001 carry our own curated RAISE messages, so they're safe to
+    // surface. Anything else is an unexpected DB error whose message may leak
+    // schema internals (constraint names, columns), so it is logged and
+    // replaced with a generic message.
+    if (error.code === '42501') throw new RpcError(error.message, 403);
+    if (error.code === '22023' || error.code === '22001') {
+      throw new RpcError(error.message, 400);
+    }
+    console.error(`[rpc:${fn}] ${error.code}: ${error.message}`);
+    throw new RpcError('request could not be processed', 500);
   }
   return data as T;
 }
@@ -85,10 +92,13 @@ export async function getUserFromRequest(request: Request): Promise<{
   return { user: data.user, token };
 }
 
-/** Constant-time check of the internal-secret header for internal routes. */
+/** Constant-time check of the internal-secret header for internal routes.
+ *  Uses realEnv, so a placeholder INTERNAL_API_SECRET is treated as absent
+ *  and the gate fails CLOSED rather than accepting the committed template
+ *  value as a valid header. */
 export async function internalSecretOk(request: Request): Promise<boolean> {
   const given = request.headers.get('x-internal-secret') ?? '';
-  const expected = envVar('INTERNAL_API_SECRET') ?? '';
+  const expected = realEnv('INTERNAL_API_SECRET') ?? '';
   if (!expected || given.length === 0) return false;
   const { timingSafeEqual, createHash } = await import('node:crypto');
   // Hash both sides first so lengths always match for timingSafeEqual.

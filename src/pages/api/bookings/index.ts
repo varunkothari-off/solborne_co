@@ -61,18 +61,29 @@ export const POST: APIRoute = async ({ request }) => {
       }
     );
 
-    const provider = paymentProvider();
-    const order = await provider.createOrder({
-      bookingId: booking_id,
-      amountPaise: discoveryCallAmountPaise(),
-      currency: 'INR',
-    });
-    await internalRpc('record_payment_order', {
-      p_booking_id: booking_id,
-      p_order_id: order.orderId,
-      p_amount: order.amountPaise,
-      p_currency: order.currency,
-    });
+    let order;
+    try {
+      const provider = paymentProvider();
+      order = await provider.createOrder({
+        bookingId: booking_id,
+        amountPaise: discoveryCallAmountPaise(),
+        currency: 'INR',
+      });
+      await internalRpc('record_payment_order', {
+        p_booking_id: booking_id,
+        p_order_id: order.orderId,
+        p_amount: order.amountPaise,
+        p_currency: order.currency,
+      });
+    } catch (orderErr) {
+      // Order creation failed after the booking row was inserted: cancel it
+      // (compensating action) so a retry starts clean and no orphaned
+      // pending_payment booking lingers.
+      await internalRpc('cancel_booking', { p_booking_id: booking_id }).catch(
+        () => {}
+      );
+      throw orderErr;
+    }
 
     return json(
       {

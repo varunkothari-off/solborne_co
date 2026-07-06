@@ -19,9 +19,10 @@ import { roadmap, evidenceTiers } from '../data/roadmap';
  *
  * The question list is computed as the UNION of what the selected domains
  * need — nothing is ever asked twice, and the progress indicator counts the
- * resolved path. Lead details are captured before the read-out; see the
- * LEAD CAPTURE INTEGRATION POINT in the script (front-end only for now,
- * mirroring the contact form).
+ * resolved path. Lead details are captured before the read-out and stored
+ * server-side via POST /api/leads (Supabase-backed); the returned lead id
+ * powers the "Book the discovery call" CTA on the read-out. See the wired
+ * LEAD CAPTURE block in the script.
  */
 
 // ---- Build a slug → item lookup the client can render from ----
@@ -413,11 +414,14 @@ const pageDescription =
         /** Server-side lead id once POST /api/leads succeeds. */
         leadId: string | null;
         leadSaveFailed: boolean;
+        /** Signature of the details+answers behind the saved lead, so an
+            unchanged resubmit reuses the id instead of inserting a duplicate. */
+        savedSig: string | null;
       } = {
         path: null, domains: [], role: null, roleValue: null, tools: [],
         answers: {}, frequency: null, scale: null,
         lead: { name: '', email: '', firm: '' },
-        leadId: null, leadSaveFailed: false,
+        leadId: null, leadSaveFailed: false, savedSig: null,
       };
 
       const esc = (s: string) =>
@@ -536,8 +540,17 @@ const pageDescription =
         (target ?? el!.querySelector<HTMLElement>('.dx-q'))?.focus();
       }
 
+      // Any change to the answers invalidates an already-saved lead so the
+      // next arrival at the contact step re-saves fresh data. Without this,
+      // editing an answer after saving would keep the stale lead id.
+      function invalidateLead() {
+        state.leadId = null;
+        state.leadSaveFailed = false;
+      }
+
       function onChoose(btn: HTMLButtonElement) {
         const { kind } = btn.dataset;
+        invalidateLead();
         if (kind === 'path') {
           // Re-clicking the path already chosen (e.g. after backing up to
           // review it) just moves forward — it must not wipe the answers.
@@ -621,11 +634,9 @@ const pageDescription =
             (!name ? nameInput : emailInput)?.focus();
             return;
           }
-          state.lead = {
-            name,
-            email: emailInput!.value.trim(),
-            firm: firmInput?.value.trim() ?? '',
-          };
+          const email = emailInput!.value.trim();
+          const firm = firmInput?.value.trim() ?? '';
+          state.lead = { name, email, firm };
 
           // ============================================================
           // LEAD CAPTURE — WIRED: the payload is stored server-side via
@@ -645,6 +656,14 @@ const pageDescription =
             matches: score().ranked,
           };
 
+          // Already saved this exact payload (Back → Forward without editing
+          // anything)? Reuse the id — don't insert a duplicate lead row.
+          const sig = JSON.stringify(payload);
+          if (state.leadId && state.savedSig === sig) {
+            go(1);
+            return;
+          }
+
           const nextBtn = el!.querySelector<HTMLButtonElement>('[data-next]');
           if (nextBtn) {
             nextBtn.disabled = true;
@@ -663,9 +682,11 @@ const pageDescription =
             });
             clearTimeout(timer);
             if (res.ok) {
-              const data = await res.json();
-              state.leadId = typeof data.lead_id === 'string' ? data.lead_id : null;
+              const respData = await res.json();
+              state.leadId =
+                typeof respData.lead_id === 'string' ? respData.lead_id : null;
             }
+            if (state.leadId) state.savedSig = sig;
             state.leadSaveFailed = !state.leadId;
           } catch {
             state.leadSaveFailed = true;
@@ -952,7 +973,7 @@ const pageDescription =
             </div>
             ${
               state.leadSaveFailed
-                ? `<p class="dx-disclaimer">We couldn’t reach our server to save this read-out, so booking isn’t available from here — your read-out still stands, and the contact page works.</p>`
+                ? `<p class="dx-disclaimer">We couldn’t save this read-out just now, so booking isn’t available from here — your read-out above still stands. To reach us, email <a href="mailto:hello@solborne.com">hello@solborne.com</a>.</p>`
                 : ''
             }
           </div>` +
@@ -963,7 +984,7 @@ const pageDescription =
           state.path = null; state.domains = []; state.answers = {};
           state.role = null; state.roleValue = null; state.tools = [];
           state.frequency = null; state.scale = null;
-          state.leadId = null; state.leadSaveFailed = false;
+          state.leadId = null; state.leadSaveFailed = false; state.savedSig = null;
           stepIndex = 0; render();
         });
         el!.querySelector<HTMLElement>('.dx-q')?.focus();

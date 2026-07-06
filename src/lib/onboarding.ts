@@ -3,9 +3,9 @@
  * (auto-trigger after verified payment) and the internal
  * POST /api/calls/trigger endpoint.
  *
- * The payment-before-call rule is enforced TWICE: here by call order, and in
- * the database — public.create_call() refuses any booking not in 'paid'
- * status.
+ * The payment-before-call rule is enforced by ordering: reserve_call runs the
+ * atomic paid-gate (and booking transition) in the database BEFORE the
+ * outbound provider call is placed, so a call can never precede a payment.
  */
 import { internalRpc } from './supabase';
 import { voiceProvider } from './voice';
@@ -20,11 +20,29 @@ export interface TriggeredCallResult {
 export async function triggerCallForBooking(
   bookingId: string
 ): Promise<TriggeredCallResult> {
-  const provider = voiceProvider();
-  const call = await provider.triggerOutboundCall({ bookingId });
-  // create_call() raises unless the booking status is 'paid'.
-  const callId = await internalRpc<string>('create_call', {
+  // 1. DB gate FIRST: reserve_call atomically requires status='paid' and
+  //    transitions the booking to 'call_scheduled', inserting the calls row.
+  //    Nothing is dialled until this passes, so an unpaid booking can never
+  //    place an outbound call — the ordering the spec requires.
+  const callId = await internalRpc<string>('reserve_call', {
     p_booking_id: bookingId,
+  });
+
+  // 2. Now place the outbound call — the booking is confirmed paid.
+  const provider = voiceProvider();
+  let call;
+  try {
+    call = await provider.triggerOutboundCall({ bookingId });
+  } catch (err) {
+    // Dial failed: mark the call failed and hand the booking back to 'paid'
+    // so it can be retried via POST /api/calls/trigger.
+    await internalRpc('mark_call_failed', { p_call_id: callId }).catch(() => {});
+    throw err;
+  }
+
+  // 3. Record the provider's call id against the reserved row.
+  await internalRpc('attach_provider_call_id', {
+    p_call_id: callId,
     p_provider_call_id: call.providerCallId,
   });
   return { callId, providerCallId: call.providerCallId, stub: call.stub };

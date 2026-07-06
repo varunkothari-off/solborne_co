@@ -2,6 +2,13 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import PageIntro from '../../components/PageIntro.astro';
 import Section from '../../components/Section.astro';
+import { stubMode } from '../../lib/env';
+
+// Rendered per-request so the status view can be honest about stub mode:
+// in preview there is no real call, and the calls row stays 'triggered'
+// forever, so the page must not claim "the call is on its way".
+export const prerender = false;
+const previewMode = stubMode.razorpay || stubMode.elevenlabs;
 
 /**
  * Part C of the onboarding flow: the post-payment status / reveal screen.
@@ -25,7 +32,19 @@ const pageDescription =
   </PageIntro>
 
   <Section label="Status">
-    <div class="cf" data-confirmed>
+    <div class="cf" data-confirmed data-preview={previewMode ? 'true' : undefined}>
+      {
+        previewMode && (
+          <div class="cf-preview" role="note">
+            <p class="cf-preview-label">Preview mode</p>
+            <p>
+              This is a preview of the post-booking flow. No real payment was
+              taken and no discovery call is placed — the call step stays
+              pending because live calling isn't connected yet.
+            </p>
+          </div>
+        )
+      }
       <noscript>
         <p class="cf-note">This status view needs JavaScript.</p>
       </noscript>
@@ -66,6 +85,7 @@ const pageDescription =
   <script>
     const root = document.querySelector<HTMLElement>('[data-confirmed]');
     if (root) {
+      const preview = root.dataset.preview === 'true';
       const bookingId = new URLSearchParams(location.search).get('booking');
       const note = (key: string) =>
         root.querySelector<HTMLElement>(`[data-note="${key}"]`)!;
@@ -94,13 +114,15 @@ const pageDescription =
             const callDone = s.call_status === 'completed';
             const callGoing = s.call_status === 'triggered';
             step('call').classList.toggle('is-done', callDone);
-            step('call').classList.toggle('is-active', callGoing);
+            step('call').classList.toggle('is-active', callGoing && !preview);
             note('call').textContent = callDone
               ? s.needs_human_review
                 ? 'Complete — the routing is being checked by a human before the reveal.'
                 : 'Complete.'
               : callGoing
-                ? 'Scheduled — the call is on its way.'
+                ? preview
+                  ? 'Reserved — live calling isn’t connected in preview, so no call is placed.'
+                  : 'Scheduled — the call is on its way.'
                 : 'Starts after payment confirms.';
 
             const card = root.querySelector<HTMLElement>('[data-expert-card]')!;
@@ -116,7 +138,10 @@ const pageDescription =
               note('expert').textContent = 'Waiting on expert assignment.';
             }
 
-            if (!callDone && polls < 12) setTimeout(poll, 1500);
+            // In preview the call never progresses past 'triggered', so stop
+            // polling once payment is confirmed rather than spinning forever.
+            const keepPolling = preview ? !paid : !callDone;
+            if (keepPolling && polls < 12) setTimeout(poll, 1500);
           } catch {
             const err = root.querySelector<HTMLElement>('[data-error]')!;
             err.textContent =
@@ -144,6 +169,29 @@ const pageDescription =
     border: var(--border-hairline);
     border-radius: var(--radius-card);
     padding: clamp(1.5rem, 1rem + 3vw, 2.25rem);
+  }
+
+  .cf-preview {
+    background: var(--color-bearing-wash);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 1.125rem 1.375rem;
+  }
+
+  .cf-preview p {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body-strong);
+  }
+
+  .cf-preview-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.375rem;
   }
 
   .cf-steps {
