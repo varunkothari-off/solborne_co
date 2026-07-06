@@ -3,6 +3,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PageIntro from '../components/PageIntro.astro';
 import Section from '../components/Section.astro';
 import Button from '../components/Button.astro';
+import Mark from '../components/Mark.astro';
 
 const pageTitle = 'About — Solborne & Co.';
 
@@ -44,7 +45,10 @@ const values = [
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
-  <PageIntro eyebrow="About" title="We're not AI experts. We don't think anyone is yet.">
+  <PageIntro
+    eyebrow="About"
+    lines={["We're not AI experts.", "We don't think anyone is yet."]}
+  >
     <p>
       AI keeps outgrowing whatever anyone masters — and the people selling certainty are
       selling you something. So we start somewhere more honest: what we know, what we don't,
@@ -75,7 +79,7 @@ const values = [
     </div>
   </Section>
 
-  <Section label="Why we exist" title="Built for the people the consulting industry left behind">
+  <Section label="Why we exist" title="Built for the people good advice never quite reached">
     <div class="prose">
       <p>
         If you run a small firm, a solo practice, or a growing brand, you've probably been
@@ -128,12 +132,27 @@ const values = [
     </div>
   </Section>
 
+  <Section label="The mark" title="A bearing, not a badge">
+    <div class="mark-row">
+      <div class="mark-figure">
+        <Mark size={88} label="The Solborne bearing mark" />
+      </div>
+      <div class="prose">
+        <p>
+          Our mark is a bearing: a fixed point of light held over a level horizon. It's what a
+          guide gives you — a direction to steer by, while you keep driving. Plain and warm on
+          purpose, so a five-person firm and a five-hundred-person firm feel equally at home.
+        </p>
+      </div>
+    </div>
+  </Section>
+
   <Section label="Next step">
     <div class="prose">
       <p>The first step costs nothing, and what you do with it stays yours to decide.</p>
     </div>
     <div class="cta-row">
-      <Button href="/contact/">Start with the free diagnostic</Button>
+      <Button href="/diagnostic/">Start with the free diagnostic</Button>
       <Button href="/approach/" variant="ghost">See how we work</Button>
     </div>
   </Section>
@@ -204,6 +223,26 @@ const values = [
   @media (max-width: 760px) {
     .values {
       grid-template-columns: 1fr;
+    }
+  }
+
+  /* ---- The mark, shown beside the copy that describes it ---- */
+  .mark-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+  }
+
+  .mark-figure {
+    flex: none;
+    color: var(--color-ink);
+  }
+
+  @media (max-width: 760px) {
+    .mark-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-md);
     }
   }
 

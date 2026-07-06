@@ -4,15 +4,17 @@ import PageIntro from '../components/PageIntro.astro';
 import Section from '../components/Section.astro';
 import Button from '../components/Button.astro';
 import { services } from '../data/services';
-import { roadmap } from '../data/roadmap';
+import { roadmap, roadmapCount } from '../data/roadmap';
 
-// PLACEHOLDER: points at Contact until the real diagnostic flow ships.
-// Re-point this one constant when the diagnostic page exists.
-const diagnosticHref = '/contact/';
+// The free diagnostic is the lead-capture flow at /diagnostic/ — the way in,
+// not a service — so it is deliberately absent from the catalog below. This
+// one constant points the catalog's "start with the free diagnostic" CTAs
+// at it.
+const diagnosticHref = '/diagnostic/';
 
 const pageTitle = 'Services — Solborne & Co.';
 const pageDescription =
-  'Six AI services, from a free diagnostic to a full readiness assessment. Fixed scope, flat fees, human-checked work — the same care at every price.';
+  'Five AI services, from an opportunity audit to a full readiness assessment. Fixed scope, flat fees, human-checked work — the same care at every price.';
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
@@ -27,15 +29,11 @@ const pageDescription =
     </p>
   </PageIntro>
 
-  <Section label="The catalog" title="Six services, ready today.">
+  <Section label="The catalog" title="Five services, ready today." id="live">
     <!-- ============================================================
          PRICING GATE (deliberate): no price figures on the site.
          Where a price used to render, each row now carries a CTA
-         toward the free diagnostic.
-         PLACEHOLDER LINK TARGET: the diagnostic flow does not exist
-         yet as a real page, so the CTA points at /contact/ for now.
-         When the diagnostic page ships, re-point `diagnosticHref`
-         here (one place) and the whole catalog follows.
+         toward the free diagnostic — see `diagnosticHref` above.
          ============================================================ -->
     <div class="catalog">
       {
@@ -55,7 +53,7 @@ const pageDescription =
             </div>
             <p class="row-cta">
               <a href={diagnosticHref}>
-                {service.slug === 'diagnostic' ? 'Start here' : 'Start with the free diagnostic'}
+                Start with the free diagnostic
                 <span class="visually-hidden"> — {service.name}</span>
                 <span aria-hidden="true"> &rarr;</span>
               </a>
@@ -66,36 +64,144 @@ const pageDescription =
     </div>
   </Section>
 
-  <Section label="The roadmap" title="Where this goes next.">
-    <p class="roadmap-intro">
-      The six services above are staffed and ready today. Everything below is
-      the roadmap — real capability, not yet staffed with a named expert, so we don't
-      sell it yet. When an item goes live, it moves into the catalog above under the same
-      rule as everything else: fixed scope, a human check, the same care at every price.
+  <Section label="The full catalog" title="What are you trying to do?" id="catalog">
+    <p class="catalog-intro">
+      The five services above are our staffed, flagship offering. Below is the
+      full catalog — {roadmapCount} workflows across ten categories, each built
+      and ready to run today, delivered by AI with a human expert review pass
+      on every engagement.
+    </p>
+    <p class="catalog-intro catalog-intro--minor">
+      What we don’t claim: a completed paying engagement behind these specific
+      workflows yet. The capability is real and ready; the track record is
+      being built.
     </p>
 
-    <!-- Roadmap entries are deliberately non-interactive: no links, no
-         CTAs, no pricing. Nothing here can be booked today. -->
-    <div class="roadmap">
+    <p class="start-nudge">
+      Not sure where to start? <a href={diagnosticHref}>Take the free diagnostic</a>
+      — a few plain questions that point you at the workflows worth your attention.
+    </p>
+
+    <!-- Filter bar: progressive enhancement only. Hidden until the script
+         below wires it up; without JavaScript the category sections render
+         expanded and readable, so nothing is lost. -->
+    <div class="browse-bar" data-filter-ui hidden>
+      <label class="visually-hidden" for="catalog-search">Search workflows</label>
+      <input
+        id="catalog-search"
+        class="browse-search"
+        type="search"
+        placeholder="Search workflows…"
+        autocomplete="off"
+      />
+      {/* Exactly one filter is active at a time, so these are radios, not
+          independent toggles — with the roving-tabindex arrow-key pattern. */}
+      <div class="chips" role="radiogroup" aria-label="Filter by category">
+        <button
+          type="button"
+          class="chip is-active"
+          role="radio"
+          aria-checked="true"
+          tabindex="0"
+          data-chip="all"
+        >
+          All
+        </button>
+        {
+          roadmap.map((category) => (
+            <button
+              type="button"
+              class="chip"
+              role="radio"
+              aria-checked="false"
+              tabindex="-1"
+              data-chip={category.slug}
+            >
+              {category.name}
+            </button>
+          ))
+        }
+      </div>
+    </div>
+
+    {/* Permanently in the accessibility tree (never [hidden]) so screen
+        readers hear every filter change, including "no matches". One line
+        of height is always reserved, so appearing text causes no shift. */}
+    <p class="browse-count" data-count aria-live="polite"></p>
+
+    <div class="cats">
       {
         roadmap.map((category) => (
-          <div class="roadmap-category">
-            <h3 class="category-label">{category.name}</h3>
-            <ul class="roadmap-list" role="list">
-              {category.items.map((item) => (
-                <li class="roadmap-item">
-                  <div class="roadmap-text">
-                    <p class="roadmap-name">{item.name}</p>
-                    <p class="roadmap-blurb">{item.blurb}</p>
-                  </div>
-                  <p class="roadmap-tag">On our roadmap</p>
-                </li>
-              ))}
-            </ul>
-          </div>
+          <section class="cat" id={category.slug} data-cat={category.slug}>
+            <div class="cat-row" data-cat-row>
+              <span class="cat-head">
+                <h3 class="cat-name">
+                  <button
+                    type="button"
+                    class="cat-trigger"
+                    id={`cat-trigger-${category.slug}`}
+                    aria-controls={`cat-panel-${category.slug}`}
+                    aria-expanded="true"
+                  >
+                    {category.name}
+                  </button>
+                </h3>
+                <span class="cat-desc">{category.description}</span>
+              </span>
+              <span class="cat-meta">
+                <span class="cat-count">
+                  {category.items.length}
+                  <span class="visually-hidden"> workflows</span>
+                </span>
+                <span class="cat-chevron" aria-hidden="true" />
+              </span>
+            </div>
+            <div
+              class="cat-panel"
+              id={`cat-panel-${category.slug}`}
+              role="region"
+              aria-labelledby={`cat-trigger-${category.slug}`}
+            >
+              <ul class="cat-list" role="list">
+                {category.items.map((item) => (
+                  <li class="cat-item" data-item>
+                    {item.slug ? (
+                      <a class="cat-link" href={`/services/${item.slug}/`}>
+                        {item.name}
+                        <span aria-hidden="true"> &rarr;</span>
+                      </a>
+                    ) : (
+                      <p class="cat-item-name">{item.name}</p>
+                    )}
+                    <p class="cat-blurb">{item.blurb}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
         ))
       }
     </div>
+
+    <script is:inline>
+      // Collapse the catalog before first paint when JavaScript is available.
+      // Without JavaScript this never runs and every category stays expanded
+      // and readable — the progressive-enhancement fallback.
+      (function () {
+        document.querySelectorAll('#catalog .cat-panel').forEach(function (p) {
+          p.hidden = true;
+        });
+        document.querySelectorAll('#catalog .cat-trigger').forEach(function (b) {
+          b.setAttribute('aria-expanded', 'false');
+        });
+      })();
+    </script>
+
+    <p class="browse-empty" data-empty hidden>
+      Nothing matches that.
+      <button type="button" class="browse-reset" data-reset>Show everything</button>
+      — or <a href={diagnosticHref}>take the free diagnostic</a> and let it point you.
+    </p>
   </Section>
 
   <Section label="How engagements run" title="Fixed scope, flat fee, checked work.">
@@ -130,10 +236,169 @@ const pageDescription =
 
   <Section label="Next step">
     <nav class="cta-row" aria-label="Get started">
-      <Button href="/contact/">Start with the free diagnostic</Button>
+      <Button href="/diagnostic/">Start with the free diagnostic</Button>
       <Button href="/contact/" variant="ghost">Ask a question</Button>
     </nav>
   </Section>
+
+  <script>
+    // Catalog browse: disclosure toggles, filter chips, and search.
+    // Progressive enhancement — the markup is complete without this script
+    // (the inline snippet above collapses the panels only when JS runs).
+    // State changes only toggle `hidden`/aria attributes: no DOM rebuilding.
+    const ui = document.querySelector<HTMLElement>('[data-filter-ui]');
+    const search = document.getElementById('catalog-search') as HTMLInputElement | null;
+    const chips = [...document.querySelectorAll<HTMLButtonElement>('[data-chip]')];
+    const cats = [...document.querySelectorAll<HTMLElement>('section[data-cat]')];
+    const countEl = document.querySelector<HTMLElement>('[data-count]');
+    const emptyEl = document.querySelector<HTMLElement>('[data-empty]');
+    const resetEl = document.querySelector<HTMLButtonElement>('[data-reset]');
+
+    if (ui && search && countEl && emptyEl && cats.length) {
+      ui.hidden = false;
+      let activeChip = 'all';
+      let lastQuery = '';
+
+      const norm = (s: string) => s.toLowerCase();
+      const triggerOf = (cat: HTMLElement) =>
+        cat.querySelector<HTMLButtonElement>('.cat-trigger');
+
+      function setOpen(cat: HTMLElement, open: boolean) {
+        const trigger = triggerOf(cat);
+        const panel = cat.querySelector<HTMLElement>('.cat-panel');
+        if (!trigger || !panel) return;
+        trigger.setAttribute('aria-expanded', String(open));
+        panel.hidden = !open;
+        cat.toggleAttribute('data-open', open);
+      }
+
+      // driveOpen: true when a filter/search change should decide which
+      // categories are open. Manual toggles are never overridden outside
+      // of these calls.
+      function apply(driveOpen: boolean) {
+        const q = norm(search!.value.trim());
+        let shown = 0;
+        let total = 0;
+
+        for (const cat of cats) {
+          const inChip = activeChip === 'all' || cat.dataset.cat === activeChip;
+          // A query matching the category's own name/descriptor matches the
+          // whole category — searching "legal" must surface Legal itself.
+          const rowText = norm(cat.querySelector('.cat-row')?.textContent || '');
+          const catMatch = q !== '' && rowText.includes(q);
+          const items = [...cat.querySelectorAll<HTMLElement>('[data-item]')];
+          total += items.length;
+          let visible = 0;
+          for (const item of items) {
+            const match =
+              inChip && (!q || catMatch || norm(item.textContent || '').includes(q));
+            item.hidden = !match;
+            if (match) visible += 1;
+          }
+          shown += visible;
+          cat.hidden = !inChip || (q !== '' && visible === 0);
+          if (driveOpen) {
+            if (q !== '') setOpen(cat, visible > 0);
+            else if (activeChip !== 'all') setOpen(cat, inChip);
+            else setOpen(cat, false);
+          }
+        }
+
+        const filtering = q !== '' || activeChip !== 'all';
+        countEl!.textContent = !filtering
+          ? ''
+          : shown === 0
+            ? 'No workflows match'
+            : `Showing ${shown} of ${total} workflows`;
+        emptyEl!.hidden = shown > 0;
+      }
+
+      function selectChip(next: HTMLButtonElement) {
+        activeChip = next.dataset.chip!;
+        chips.forEach((c) => {
+          const on = c === next;
+          c.classList.toggle('is-active', on);
+          c.setAttribute('aria-checked', String(on));
+          c.tabIndex = on ? 0 : -1;
+        });
+      }
+
+      function resetFilters() {
+        search!.value = '';
+        lastQuery = '';
+        selectChip(chips.find((c) => c.dataset.chip === 'all')!);
+        apply(true);
+      }
+
+      search.addEventListener('input', () => {
+        const q = norm(search!.value.trim());
+        if (q === lastQuery) return; // no-op (e.g. spaces): keep manual state
+        lastQuery = q;
+        apply(true);
+      });
+
+      chips.forEach((chip, i) => {
+        chip.addEventListener('click', () => {
+          if (chip.dataset.chip === activeChip) return; // no-op: keep manual state
+          selectChip(chip);
+          apply(true);
+        });
+        // Radiogroup arrow-key pattern (selection follows focus).
+        chip.addEventListener('keydown', (e) => {
+          const delta =
+            e.key === 'ArrowRight' || e.key === 'ArrowDown'
+              ? 1
+              : e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+                ? -1
+                : 0;
+          if (!delta) return;
+          e.preventDefault();
+          const next = chips[(i + delta + chips.length) % chips.length];
+          next.focus();
+          next.click();
+        });
+      });
+
+      resetEl?.addEventListener('click', () => {
+        resetFilters();
+        search!.focus();
+      });
+
+      // Disclosure toggles: the trigger button carries the semantics;
+      // clicking anywhere on the row toggles too.
+      for (const cat of cats) {
+        const trigger = triggerOf(cat);
+        trigger?.addEventListener('click', () => {
+          setOpen(cat, trigger.getAttribute('aria-expanded') !== 'true');
+        });
+        cat.querySelector('[data-cat-row]')?.addEventListener('click', (e) => {
+          if ((e.target as Element).closest('.cat-trigger')) return;
+          trigger?.click();
+        });
+      }
+
+      // Deep links (/services/#legal, e.g. from older anchors) open that
+      // category, clearing any filter that would hide it. getElementById on
+      // the decoded fragment — never a CSS selector, so junk hashes
+      // (#utm_source=…, #%20) cannot throw.
+      const openFromHash = () => {
+        const raw = location.hash.slice(1);
+        if (!raw) return;
+        let id = raw;
+        try {
+          id = decodeURIComponent(raw);
+        } catch {
+          /* keep the raw fragment */
+        }
+        const target = document.getElementById(id);
+        if (!target || !target.matches('section[data-cat]')) return;
+        if (search!.value !== '' || activeChip !== 'all') resetFilters();
+        setOpen(target, true);
+      };
+      openFromHash();
+      window.addEventListener('hashchange', openFromHash);
+    }
+  </script>
 </BaseLayout>
 
 <style>
@@ -247,58 +512,247 @@ const pageDescription =
     }
   }
 
-  /* ---- The roadmap: deliberately lighter than the live catalog ----
-     No panel container, no border card, no links — hairline rows in
-     Stone-weighted type so the staffed catalog above visibly outranks it. */
-  .roadmap-intro {
+  /* ---- The full catalog: category-first, collapsed by default ----
+     The categories do the organizing; workflows appear on expand. Kept
+     deliberately lighter than the staffed catalog above — hairline rows,
+     Stone-weighted type, no panel cards — so the flagship still outranks it. */
+  .catalog-intro {
     max-width: var(--width-measure);
     font-size: var(--text-body);
     line-height: var(--leading-body);
     color: var(--color-body-strong);
-    margin-bottom: var(--space-lg);
+    margin-bottom: var(--space-sm);
   }
 
-  .roadmap {
+  /* The honesty caveat: lighter than the lede above it. */
+  .catalog-intro--minor {
+    font-size: var(--text-body-sm);
+    color: var(--color-body);
+  }
+
+  .start-nudge {
+    max-width: var(--width-measure);
+    font-size: var(--text-body-sm);
+    color: var(--color-body);
+    margin-top: var(--space-md);
+  }
+
+  /* ---- Filter bar ---- */
+  .browse-bar {
     display: grid;
-    gap: var(--space-lg);
+    gap: var(--space-sm);
+    margin-top: var(--space-lg);
   }
 
-  .category-label {
+  /* `display: grid` above would defeat the UA's [hidden] rule — restate it,
+     or the pre-JS "hidden" bar renders as a dead control panel. */
+  .browse-bar[hidden] {
+    display: none;
+  }
+
+  .browse-search {
+    max-width: 22rem;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-swatch);
+    padding: 0.625rem 0.875rem;
+    /* 16px minimum: anything smaller triggers iOS Safari's focus zoom. */
+    font-size: 1rem;
+    color: var(--color-ink);
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .browse-search::placeholder {
+    color: var(--color-stone);
+  }
+
+  .browse-search:focus {
+    border-color: var(--color-steel);
+  }
+
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  .chip {
     font-family: var(--font-mono);
-    font-size: var(--text-label);
-    font-weight: var(--weight-mono-medium);
-    letter-spacing: var(--tracking-block-label);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-tag);
     text-transform: uppercase;
     color: var(--color-stone);
-    margin-bottom: var(--space-xs);
-    padding-bottom: 0.625rem;
+    background: transparent;
+    border: var(--border-hairline);
+    border-radius: var(--radius-pill);
+    padding: 0.375rem 0.75rem;
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+  }
+
+  .chip:hover {
+    color: var(--color-ink);
+    border-color: var(--color-stone);
+  }
+
+  /* Selected chip: Ink on the warm neutral tint (same selected language as
+     the diagnostic options — never the amber wash). */
+  .chip.is-active {
+    color: var(--color-ink);
+    border-color: var(--color-ink);
+    background: var(--color-track);
+  }
+
+  /* A figure line, so mono + Steel. One line of height is reserved even when
+     empty, so the count appearing/disappearing never shifts the layout. */
+  .browse-count {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-steel);
+    margin-top: var(--space-sm);
+    min-height: 1rem;
+  }
+
+  /* ---- Category disclosures ----
+     Not <details>: a button-in-heading disclosure keeps the ten category
+     names reachable by screen-reader heading navigation (VoiceOver strips
+     heading semantics inside <summary>), and the no-JS fallback renders
+     everything expanded. */
+  .cats {
+    margin-top: var(--space-xs);
+    border-top: var(--border-hairline);
+  }
+
+  .cat {
     border-bottom: var(--border-hairline);
+    /* Offset sticky-header height so anchor jumps land cleanly. */
+    scroll-margin-top: 5rem;
   }
 
-  .roadmap-list {
-    list-style: none;
-  }
-
-  .roadmap-item {
-    display: grid;
-    grid-template-columns: 1fr auto;
+  .cat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: var(--space-md);
-    align-items: baseline;
-    padding: 0.875rem 0;
-    border-bottom: var(--border-hairline);
+    padding: 1.125rem 0;
+    cursor: pointer;
   }
 
-  .roadmap-item:last-child {
-    border-bottom: none;
+  .cat-head {
+    display: grid;
+    gap: 0.3125rem;
   }
 
-  .roadmap-name {
+  .cat-name {
+    font-size: var(--text-h3);
+    line-height: var(--leading-heading);
+  }
+
+  /* The disclosure trigger inherits the serif heading look. */
+  .cat-trigger {
+    font: inherit;
+    color: var(--color-ink);
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+
+  .cat-row:hover .cat-trigger {
+    color: var(--color-steel);
+  }
+
+  .cat-desc {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    max-width: 52ch;
+  }
+
+  .cat-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex: none;
+  }
+
+  /* The count: a figure, so mono + Steel. */
+  .cat-count {
+    font-family: var(--font-mono);
+    font-size: var(--text-body-sm);
+    font-weight: var(--weight-mono);
+    color: var(--color-steel);
+  }
+
+  .cat-chevron {
+    display: block;
+    width: 7px;
+    height: 7px;
+    border-right: 1.5px solid var(--color-stone);
+    border-bottom: 1.5px solid var(--color-stone);
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+  .cat[data-open] .cat-chevron {
+    transform: rotate(-135deg) translate(-1px, -1px);
+  }
+
+  .cat-list {
+    list-style: none;
+    padding-bottom: var(--space-md);
+  }
+
+  .cat-item {
+    padding: 0.75rem 0;
+  }
+
+  .cat-item + .cat-item {
+    border-top: var(--border-hairline);
+  }
+
+  /* Filtered-out rows are display:none but still siblings — don't let the
+     first visible row inherit a stray separator from a hidden predecessor. */
+  .cat-item[hidden] + .cat-item {
+    border-top: none;
+  }
+
+  .cat-item-name {
     font-weight: var(--weight-body-medium);
     font-size: var(--text-body-sm);
     color: var(--color-ink);
   }
 
-  .roadmap-blurb {
+  /* Linkable item name — understated (Steel accent, not a button). */
+  .cat-link {
+    display: inline-block;
+    font-weight: var(--weight-body-medium);
+    font-size: var(--text-body-sm);
+    text-decoration: none;
+    color: var(--color-ink);
+    border-bottom: 1px solid transparent;
+    transition: color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .cat-link span {
+    color: var(--color-steel);
+  }
+
+  .cat-link:hover {
+    color: var(--color-steel);
+    border-bottom-color: var(--color-steel);
+  }
+
+  .cat-blurb {
     font-size: var(--text-caption);
     line-height: var(--leading-tight);
     color: var(--color-body);
@@ -306,20 +760,32 @@ const pageDescription =
     max-width: 62ch;
   }
 
-  .roadmap-tag {
-    font-family: var(--font-mono);
-    font-size: var(--text-tag);
-    font-weight: var(--weight-mono);
-    letter-spacing: var(--tracking-tag);
-    text-transform: uppercase;
-    color: var(--color-stone);
-    white-space: nowrap;
+  .browse-empty {
+    margin-top: var(--space-md);
+    font-size: var(--text-body-sm);
+    color: var(--color-body);
+    max-width: var(--width-measure);
+  }
+
+  .browse-reset {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: var(--color-steel);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--color-steel) 40%, transparent);
+    text-underline-offset: 3px;
+  }
+
+  .browse-reset:hover {
+    text-decoration-color: var(--color-steel);
   }
 
   @media (max-width: 760px) {
-    .roadmap-item {
-      grid-template-columns: 1fr;
-      gap: 0.375rem;
+    .cat-row {
+      gap: var(--space-sm);
     }
   }
 

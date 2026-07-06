@@ -1,20 +1,28 @@
 ---
 /**
- * Masthead pattern from the design file: centered mono eyebrow, serif
- * headline, measured intro paragraph, thin level rule beneath.
+ * Masthead pattern from the design file: centered mono eyebrow (optional),
+ * serif headline, measured intro paragraph, thin level rule beneath.
+ *
+ * Headlines built from two statements pass `lines` instead of `title`: each
+ * statement renders as its own balanced line, so the break always lands on
+ * the sentence boundary and the two lines sit cleanly under one another.
  */
 interface Props {
-  eyebrow: string;
-  title: string;
+  eyebrow?: string;
+  title?: string;
+  /** Two-statement headlines: one entry per line. Takes precedence over title. */
+  lines?: string[];
 }
 
-const { eyebrow, title } = Astro.props;
+const { eyebrow, title, lines } = Astro.props;
 ---
 
 <header class="page-intro">
   <div class="wrap">
-    <p class="eyebrow">{eyebrow}</p>
-    <h1>{title}</h1>
+    {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+    <h1>
+      {lines ? lines.map((line) => <span class="line">{line}</span>) : title}
+    </h1>
     <div class="intro"><slot /></div>
     <div class="rule-thin" aria-hidden="true"></div>
   </div>
@@ -32,6 +40,13 @@ const { eyebrow, title } = Astro.props;
 
   h1 {
     margin-bottom: 1.375rem;
+    text-wrap: balance;
+  }
+
+  /* One statement per line, each wrapping in balance with the other. */
+  .line {
+    display: block;
+    text-wrap: balance;
   }
 
   .intro {

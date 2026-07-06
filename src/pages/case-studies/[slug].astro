@@ -5,8 +5,13 @@ import Section from '../../components/Section.astro';
 import Button from '../../components/Button.astro';
 import { caseStudies } from '../../data/case-studies';
 import type { CaseStudy } from '../../data/case-studies';
+import { site } from '../../data/site';
 
+// CASE-STUDIES TOGGLE: while site.showCaseStudies is false, no case-study
+// pages are emitted at all — the write-ups are placeholders naming real
+// clients. Flip the flag in src/data/site.ts to restore them.
 export function getStaticPaths() {
+  if (!site.showCaseStudies) return [];
   return caseStudies.map((study) => ({
     params: { slug: study.slug },
     props: { study },

@@ -12,8 +12,10 @@ const pageTitle = `${site.name} — ${site.tagline}`;
 const pageDescription =
   'Independent AI advisory for small firms, solo practices, and growing brands. Clear, human-checked answers in plain language — affordable and within reach.';
 
-/** Home-page service highlights, pulled from the catalog in display order. */
-const highlightSlugs = ['diagnostic', 'opportunity-audit', 'module-build'];
+/** Home-page service highlights, pulled from the catalog in display order.
+    The free diagnostic is deliberately absent — it is the lead-capture flow,
+    not a service (it lives in the nav CTA and the hero CTA instead). */
+const highlightSlugs = ['opportunity-audit', 'module-build', 'retainer-starter'];
 const highlights = highlightSlugs
   .map((slug) => services.find((s) => s.slug === slug))
   .filter((s): s is Service => s !== undefined);
@@ -22,7 +24,7 @@ const steps = [
   {
     num: '01',
     name: 'Ask',
-    text: 'Eight plain questions about how work actually moves through your firm, and an honest first read — including where AI is not worth your attention.',
+    text: 'A short run of plain questions that follow where your answers lead — about how work actually moves through your firm — and an honest first read, including where AI is not worth your attention.',
   },
   {
     num: '02',
@@ -43,7 +45,8 @@ const steps = [
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
-  <PageIntro eyebrow="Independent AI advisory" title="Clear judgment about AI, within reach.">
+  {/* No eyebrow on the home masthead — the headline carries it alone. */}
+  <PageIntro lines={['Honest answers about AI.', 'You keep the wheel.']}>
     <p>
       Solborne &amp; Co. answers the AI questions that used to require an expensive
       consultant — rigorously and in plain language, with every paid deliverable
@@ -54,7 +57,7 @@ const steps = [
 
   <div class="wrap">
     <div class="cta-row">
-      <Button href="/contact/">Start with the free diagnostic</Button>
+      <Button href="/diagnostic/">Start with the free diagnostic</Button>
       <Button href="/services/" variant="ghost">See services</Button>
     </div>
   </div>
@@ -106,21 +109,25 @@ const steps = [
     <p class="more"><a href="/approach/">Our approach &rarr;</a></p>
   </Section>
 
-  <Section label="Case studies" title="Write-ups in preparation">
-    <div class="case-grid">
-      {
-        caseStudies.map((cs) => (
-          <article class="case-card">
-            <p class="tag">In preparation</p>
-            <h3>
-              <a href={`/case-studies/${cs.slug}/`}>{cs.name}</a>
-            </h3>
-            <p class="teaser">{cs.teaser}</p>
-          </article>
-        ))
-      }
-    </div>
-  </Section>
+  {
+    /* CASE STUDIES — hidden while the write-ups are placeholders. Flip
+       `showCaseStudies` in src/data/site.ts to bring the section back. */
+    site.showCaseStudies && (
+      <Section label="Case studies" title="Write-ups in preparation">
+        <div class="case-grid">
+          {caseStudies.map((cs) => (
+            <article class="case-card">
+              <p class="tag">In preparation</p>
+              <h3>
+                <a href={`/case-studies/${cs.slug}/`}>{cs.name}</a>
+              </h3>
+              <p class="teaser">{cs.teaser}</p>
+            </article>
+          ))}
+        </div>
+      </Section>
+    )
+  }
 
   <section class="cta-band" aria-label="Start a conversation" data-reveal>
     <div class="wrap">
@@ -130,7 +137,7 @@ const steps = [
           read that costs nothing.
         </p>
         <div class="cta-row cta-row--stage">
-          <Button href="/contact/">Start with the free diagnostic</Button>
+          <Button href="/diagnostic/">Start with the free diagnostic</Button>
           <Button href="/services/" variant="ghost">See services</Button>
         </div>
       </div>

@@ -12,10 +12,13 @@ ground, Source Serif 4 / Public Sans / IBM Plex Mono).
 Next.js or Astro; Astro wins for this site because:
 
 1. **This is a content site, not an app.** Every page is static copy and CSS.
-   Astro ships **zero JavaScript by default** — the only JS on the whole site
-   is a ~10-line mobile-nav toggle and the placeholder contact-form notice.
-   Next.js would ship the React runtime (~90 KB+) to render what is, in the
-   end, prose.
+   Astro ships **zero JavaScript by default** — the only JS on the site is a
+   small set of dependency-free vanilla scripts: the mobile-nav toggle and
+   Services-menu hover intent (Header.astro), the scroll reveals
+   (BaseLayout.astro), the placeholder contact-form notice, and the
+   client-side diagnostic quiz engine (`pages/diagnostic.astro`). No
+   framework runtime anywhere. Next.js would ship React (~90 KB+) to render
+   what is, in the end, prose.
 2. **No CSS framework bloat by design.** Astro's scoped `<style>` blocks plus
    one global tokens file give component-scoped styling with no Tailwind, no
    CSS-in-JS, no purge step. What's in `tokens.css` is the entire theme.
@@ -50,8 +53,10 @@ src/
   components/
     Mark.astro               The bearing mark (SVG, never tilted)
     Wordmark.astro           "Solborne & Co." with the amber ampersand
-    Header.astro             Sticky nav + mobile toggle
-    Footer.astro             Centered lockup, tagline, footer nav
+    Header.astro             Frosted-glass sticky nav, Services mega-menu
+                             (10 categories + workflows), Free Diagnostic CTA
+    Footer.astro             Centered lockup, tagline, sitemap
+                             (Start here / Company / Services categories)
     PageIntro.astro          Masthead: eyebrow / serif h1 / intro / level rule
     Section.astro            Section frame: hairline top + mono label + dash
     Button.astro             Solid (ink) and ghost link-buttons
@@ -59,21 +64,32 @@ src/
   layouts/
     BaseLayout.astro         <head>, fonts, skip-link, header/footer shell
   data/
-    site.ts                  Name, tagline, contact email
-    services.ts              Service catalog (names, prices, deliverables)
+    site.ts                  Name, tagline, contact email, showCaseStudies flag
+    services.ts              Service catalog (names, pricing model, deliverables;
+                             the free diagnostic is deliberately NOT in it)
+    roadmap.ts               Full workflow catalog (10 categories, 75 workflows,
+                             evidence-tiered benchmarks)
     case-studies.ts          Case-study registry (both entries: coming soon)
   pages/
     index.astro              Home
-    services.astro           Services
+    services.astro           Services hub
+    services/
+      [slug].astro           Dynamic route emitting BOTH the 10 category pages
+                             (/services/<category>/) and every workflow
+                             one-pager (/services/<workflow>/) from roadmap.ts
+    diagnostic.astro         Free diagnostic — adaptive branching quiz with
+                             lead capture (front-end only; see the LEAD CAPTURE
+                             INTEGRATION POINT comment in the file)
     approach.astro           Approach
     about.astro              About
     contact.astro            Contact (form is front-end only — see below)
     case-studies/
-      index.astro            Case-study index
+      index.astro            Case-study index (redirects home while
+                             site.showCaseStudies is false)
       [slug].astro           Dynamic route rendering each entry in
                              data/case-studies.ts as a clearly-marked
-                             coming-soon stub (currently MyNDSHyP and
-                             Kothari Financial Services)
+                             coming-soon stub — emits no pages while
+                             site.showCaseStudies is false
 ```
 
 ### Where things are marked for you
@@ -87,6 +103,14 @@ src/
   intercepts submit and shows a "not connected yet — email us" notice; the
   comment explains exactly what to delete and where to point the real
   endpoint when one exists.
+- **The diagnostic's lead-capture integration point** is the matching
+  `LEAD CAPTURE INTEGRATION POINT` comment block in
+  `src/pages/diagnostic.astro`. The quiz requires name + email before the
+  read-out and assembles a full payload (answers + matches), but nothing is
+  transmitted yet — POST the payload to the real endpoint there.
+- **The case-studies toggle** is `showCaseStudies` in `src/data/site.ts` —
+  one boolean that hides/restores the home section, nav item, footer link,
+  and the /case-studies/ pages themselves.
 
 ## Design-system rules encoded in this build
 
@@ -109,10 +133,11 @@ them:
    Confirm the real domain.
 2. **Contact email** — `src/data/site.ts` uses `hello@solborne.com` as a
    placeholder. Confirm the real address.
-3. **Show prices publicly?** The Services page currently displays the USD
-   price sheet from the Phase 0 research ($0 / $1,497 / $2,500 / $990 /
-   $1,900 / $6,900). Transparent pricing fits the "within reach" brand, but
-   it's a business call — say the word and the price column comes out.
+3. **Show prices publicly?** The USD price sheet lives in the gitignored
+   Phase 0 research (`docs/Phase0-Research_AI-Consultancy.md`) and is
+   deliberately kept off the site and out of this repo. Transparent pricing
+   fits the "within reach" brand, but it's a business call — say the word and
+   the price column goes in.
 4. **INR / India storefront** — Phase 0 recommends a geo-gated INR track
    launched after the USD one. This build is USD-only; the dual-storefront
    split (separate pricing page? subdomain? geo logic?) needs a product

@@ -17,19 +17,12 @@ export interface Service {
   flagship?: boolean;
 }
 
+/*
+ * NOTE: the free diagnostic is deliberately NOT in this catalog. It is the
+ * lead-capture flow at /diagnostic/ — the way in, not a service — so it never
+ * appears in the services listing, the nav dropdown, or service highlights.
+ */
 export const services: Service[] = [
-  {
-    slug: 'diagnostic',
-    name: 'Free Diagnostic',
-    priceNote: 'self-serve · no call required',
-    summary:
-      'Eight plain questions about your firm and how work actually flows through it. You get an honest first read on where AI is worth your attention — and where it is not. The diagnostic is the one thing we don’t check by hand — every paid deliverable is.',
-    deliverables: [
-      'A short written read on your situation — automated, which is what makes it free',
-      'The one or two areas worth a closer look',
-      'No sales call attached',
-    ],
-  },
   {
     slug: 'opportunity-audit',
     name: 'AI Opportunity Audit',

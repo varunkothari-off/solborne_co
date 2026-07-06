@@ -1,0 +1,391 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageIntro from '../../components/PageIntro.astro';
+import Section from '../../components/Section.astro';
+import Button from '../../components/Button.astro';
+import { roadmap, roadmapPages, evidenceTiers } from '../../data/roadmap';
+import type { RoadmapCategory, RoadmapItem } from '../../data/roadmap';
+
+/**
+ * One dynamic route, two page kinds:
+ *  - /services/<item-slug>/     — a workflow one-pager (kind: 'item')
+ *  - /services/<category-slug>/ — a category page listing its workflows
+ *    (kind: 'category'), linked from the nav mega-menu and the footer.
+ * Category slugs and item slugs are disjoint, so the params never collide.
+ */
+export function getStaticPaths() {
+  const itemPaths = roadmapPages.map(({ category, item }) => ({
+    params: { slug: item.slug },
+    props: { kind: 'item' as const, category, item },
+  }));
+  const categoryPaths = roadmap.map((category) => ({
+    params: { slug: category.slug },
+    props: { kind: 'category' as const, category },
+  }));
+  return [...itemPaths, ...categoryPaths];
+}
+
+interface Props {
+  kind: 'item' | 'category';
+  category: RoadmapCategory;
+  item?: RoadmapItem;
+}
+
+const { kind, category, item } = Astro.props;
+const isCategory = kind === 'category';
+
+// getStaticPaths only emits items that have a detail, so on item pages this
+// is always defined.
+const detail = item?.detail;
+const tier = detail ? evidenceTiers[detail.benefit.tier] : undefined;
+
+// The free diagnostic ships as its own page; "start with the free diagnostic"
+// points there. It is the lead-capture flow, not a catalog service.
+const diagnosticHref = '/diagnostic/';
+
+const catCount = category.items.length;
+const pageTitle = isCategory
+  ? `${category.name} — Services — Solborne & Co.`
+  : `${item!.name} — ${category.name} — Solborne & Co.`;
+const pageDescription = isCategory
+  ? `${category.name}: ${catCount === 1 ? 'one built, ready-to-run workflow' : `${catCount} built, ready-to-run workflows`} — delivered by AI with a human expert review pass on every engagement.`
+  : detail!.whatItDoes;
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  {
+    isCategory ? (
+      <>
+        <PageIntro eyebrow="Services" title={category.name}>
+          <p>{category.description}</p>
+          {
+            catCount === 1 ? (
+              <p>
+                One workflow in this category, built and ready to run today —
+                delivered by AI with a human expert review pass on every
+                engagement.
+              </p>
+            ) : (
+              <p>
+                <span class="mono count">{catCount}</span> workflows in this
+                category, each one built and ready to run today — delivered by
+                AI with a human expert review pass on every engagement.
+              </p>
+            )
+          }
+        </PageIntro>
+
+        <Section label="The workflows">
+          <ul class="cat-list" role="list">
+            {category.items.map((entry) => (
+              <li class="cat-item">
+                <div class="cat-text">
+                  {entry.slug ? (
+                    <a class="cat-name cat-link" href={`/services/${entry.slug}/`}>
+                      {entry.name}
+                      <span aria-hidden="true"> &rarr;</span>
+                    </a>
+                  ) : (
+                    <p class="cat-name">{entry.name}</p>
+                  )}
+                  <p class="cat-blurb">{entry.blurb}</p>
+                </div>
+                <p class="cat-tag">Ready to run</p>
+              </li>
+            ))}
+          </ul>
+          <p class="cat-note">
+            What we don’t claim: a completed client engagement behind these
+            specific workflows yet. The capability is real and ready; the track
+            record is being built.
+          </p>
+        </Section>
+
+        <Section label="Next step">
+          <div class="cta-row">
+            <Button href={diagnosticHref}>Start with the free diagnostic</Button>
+            <Button href="/services/" variant="ghost">All services</Button>
+          </div>
+        </Section>
+      </>
+    ) : (
+      <>
+        <PageIntro eyebrow={category.name} title={item!.name}>
+          <p>{item!.blurb}</p>
+        </PageIntro>
+
+        <Section label="Status">
+          <div class="ready-panel">
+            <p class="ready-tag">Built &amp; ready to run</p>
+            <p class="ready-line">
+              This is a built, ready-to-run workflow — the system and playbook
+              exist today. Every engagement is delivered by AI with a human
+              expert review pass before anything reaches you.
+            </p>
+            <p class="ready-note">
+              What we don’t claim: a completed client engagement behind this
+              specific workflow yet. The capability is real and ready; the
+              track record is being built. We’d rather tell you that plainly
+              than imply otherwise.
+            </p>
+          </div>
+        </Section>
+
+        <Section label="What it does" title={`What “${item!.name}” produces`}>
+          <p class="prose-lede">{detail!.whatItDoes}</p>
+        </Section>
+
+        <Section label="Who it’s for">
+          <p class="prose">{detail!.target}</p>
+        </Section>
+
+        <Section label="How this is done today" title="The current state, without us">
+          <p class="prose">{detail!.currentState}</p>
+        </Section>
+
+        <Section label="What the numbers say" title="The benefit — and how solid the number is">
+          <div class="benefit">
+            <p class="benefit-claim">{detail!.benefit.claim}</p>
+
+            <div class="tier-card">
+              <p class="tier-eyebrow">Evidence</p>
+              <p class="tier-label">
+                Tier {detail!.benefit.tier} — {tier!.label}
+              </p>
+              <p class="tier-note">{tier!.note}</p>
+              <p class="tier-source">
+                <span class="tier-source-label">Source:</span> {detail!.benefit.source}
+              </p>
+            </div>
+
+            <p class="benefit-disclaimer">
+              These are published industry benchmarks on comparable work — not a
+              guarantee of your specific result. What you actually save depends
+              on your volume, your tools, and your workflows.
+            </p>
+          </div>
+        </Section>
+
+        <Section label="Next step">
+          <div class="cta-row">
+            <Button href={diagnosticHref}>Start with the free diagnostic</Button>
+            <Button href="/services/" variant="ghost">See the full catalog</Button>
+          </div>
+        </Section>
+      </>
+    )
+  }
+</BaseLayout>
+
+<style>
+  /* ---- Category page: hairline workflow rows (mirrors the hub catalog) ---- */
+  .count {
+    color: var(--color-steel);
+  }
+
+  .cat-list {
+    list-style: none;
+    max-width: 50rem;
+  }
+
+  .cat-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: var(--space-md);
+    align-items: baseline;
+    padding: 0.875rem 0;
+    border-bottom: var(--border-hairline);
+  }
+
+  .cat-item:last-child {
+    border-bottom: none;
+  }
+
+  .cat-name {
+    font-weight: var(--weight-body-medium);
+    font-size: var(--text-body);
+    color: var(--color-ink);
+  }
+
+  .cat-link {
+    display: inline-block;
+    text-decoration: none;
+    color: var(--color-ink);
+    border-bottom: 1px solid transparent;
+    transition: color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .cat-link span {
+    color: var(--color-steel);
+  }
+
+  .cat-link:hover {
+    color: var(--color-steel);
+    border-bottom-color: var(--color-steel);
+  }
+
+  .cat-blurb {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    margin-top: 0.25rem;
+    max-width: 62ch;
+  }
+
+  .cat-tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    white-space: nowrap;
+  }
+
+  .cat-note {
+    margin-top: var(--space-md);
+    font-size: var(--text-caption);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    max-width: 60ch;
+  }
+
+  @media (max-width: 760px) {
+    .cat-item {
+      grid-template-columns: 1fr;
+      gap: 0.375rem;
+    }
+  }
+
+  /* ---- Ready-to-run status panel ----
+     Deliberately lighter than the live-services flagship surface: a plain
+     panel, no amber fill, so an individually-linkable catalog item never
+     visually outranks the staffed catalog on /services/. */
+  .ready-panel {
+    max-width: 50rem;
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: clamp(1.75rem, 1rem + 3vw, 2.75rem) clamp(1.25rem, 0.5rem + 3vw, 2.5rem);
+  }
+
+  .ready-tag {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-positive);
+    margin-bottom: var(--space-sm);
+  }
+
+  .ready-line {
+    font-family: var(--font-display);
+    font-weight: var(--weight-body-medium);
+    font-size: var(--text-lede);
+    line-height: var(--leading-lede);
+    color: var(--color-ink);
+    max-width: 46ch;
+  }
+
+  .ready-note {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-body);
+    color: var(--color-body);
+    max-width: var(--width-measure);
+    margin-top: var(--space-sm);
+  }
+
+  /* ---- Prose blocks ---- */
+  .prose-lede {
+    max-width: var(--width-measure);
+    font-size: var(--text-body-lg);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+  }
+
+  .prose {
+    max-width: var(--width-measure);
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+  }
+
+  /* ---- Benefit + evidence tier ---- */
+  .benefit {
+    max-width: var(--width-measure);
+  }
+
+  .benefit-claim {
+    font-size: var(--text-body);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+    margin-bottom: var(--space-md);
+  }
+
+  .tier-card {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-left: 3px solid var(--color-steel);
+    border-radius: var(--radius-card);
+    padding: 1.375rem var(--space-md);
+  }
+
+  .tier-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.5rem;
+  }
+
+  .tier-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-body-sm);
+    font-weight: var(--weight-mono-medium);
+    color: var(--color-ink);
+    margin-bottom: 0.5rem;
+  }
+
+  .tier-note {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    margin-bottom: 0.75rem;
+  }
+
+  .tier-source {
+    font-size: var(--text-caption);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+  }
+
+  .tier-source-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+  }
+
+  .benefit-disclaimer {
+    font-size: var(--text-caption);
+    line-height: var(--leading-body);
+    color: var(--color-body);
+    margin-top: var(--space-md);
+    max-width: 60ch;
+  }
+
+  /* ---- CTA row ---- */
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    align-items: center;
+    margin-top: var(--space-2xs);
+  }
+</style>

@@ -1,12 +1,32 @@
 ---
 import Mark from './Mark.astro';
 import Wordmark from './Wordmark.astro';
+import { roadmap } from '../data/roadmap';
+import { site } from '../data/site';
+
+/**
+ * Services mega-menu: every category (linking to its own page at
+ * /services/<category>/) with that category's workflows beneath it. The two
+ * largest categories would swamp the panel, so workflows are capped per
+ * category with a quiet "+ n more" link to the category page.
+ */
+const MENU_ITEM_CAP = 6;
+const menuCategories = roadmap.map((category) => {
+  const linkable = category.items.filter((item) => item.slug);
+  return {
+    name: category.name,
+    slug: category.slug,
+    items: linkable.slice(0, MENU_ITEM_CAP),
+    moreCount: Math.max(0, linkable.length - MENU_ITEM_CAP),
+  };
+});
 
 const navItems = [
-  { href: '/services/', label: 'Services' },
   { href: '/approach/', label: 'Approach' },
-  { href: '/case-studies/', label: 'Case Studies' },
+  // Case studies stay out of the nav while site.showCaseStudies is false.
+  ...(site.showCaseStudies ? [{ href: '/case-studies/', label: 'Case Studies' }] : []),
   { href: '/about/', label: 'About' },
+  { href: '/contact/', label: 'Contact' },
 ];
 
 const currentPath = Astro.url.pathname.replace(/\/?$/, '/');
@@ -15,6 +35,7 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
   if (href !== '/' && currentPath.startsWith(href)) return 'true';
   return undefined;
 };
+const onServices = currentPath.startsWith('/services/');
 ---
 
 <header class="site-header">
@@ -37,10 +58,65 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
 
     <nav id="site-nav" class="site-nav" aria-label="Main">
       <ul role="list">
+        <li class="has-dropdown">
+          <div class="dropdown-head">
+            <a
+              href="/services/"
+              class="nav-link dropdown-link"
+              aria-current={onServices ? 'true' : undefined}
+            >
+              Services
+            </a>
+            <button
+              type="button"
+              class="dropdown-toggle"
+              aria-expanded="false"
+              aria-controls="services-menu"
+            >
+              <span class="visually-hidden">Open Services menu</span>
+              <span class="chevron" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div id="services-menu" class="dropdown">
+            <div class="dropdown-inner wrap">
+              {
+                menuCategories.map((category) => (
+                  <div class="dropdown-group">
+                    <a class="dropdown-cat" href={`/services/${category.slug}/`}>
+                      {category.name}
+                    </a>
+                    <ul role="list">
+                      {category.items.map((item) => (
+                        <li>
+                          <a href={`/services/${item.slug}/`}>{item.name}</a>
+                        </li>
+                      ))}
+                      {category.moreCount > 0 && (
+                        <li>
+                          <a class="dropdown-more" href={`/services/${category.slug}/`}>
+                            + {category.moreCount} more
+                          </a>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                ))
+              }
+            </div>
+            <div class="dropdown-foot wrap">
+              <a href="/services/" class="dropdown-all">
+                View all services
+                <span aria-hidden="true"> &rarr;</span>
+              </a>
+            </div>
+          </div>
+        </li>
+
         {
           navItems.map((item) => (
             <li>
-              <a href={item.href} aria-current={ariaCurrent(item.href)}>
+              <a class="nav-link" href={item.href} aria-current={ariaCurrent(item.href)}>
                 {item.label}
               </a>
             </li>
@@ -48,11 +124,11 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
         }
         <li>
           <a
-            class="contact-cta"
-            href="/contact/"
-            aria-current={ariaCurrent('/contact/')}
+            class="nav-cta"
+            href="/diagnostic/"
+            aria-current={ariaCurrent('/diagnostic/')}
           >
-            Contact
+            Free Diagnostic
           </a>
         </li>
       </ul>
@@ -61,13 +137,24 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
 </header>
 
 <style>
+  /* Frosted glass: a translucent paper fill over a backdrop blur, with the
+     hairline bottom border as the pane's edge. Content scrolling beneath
+     reads through the glass. */
   .site-header {
     border-bottom: var(--border-hairline);
-    background: color-mix(in srgb, var(--color-paper) 88%, transparent);
-    backdrop-filter: blur(6px);
+    background: color-mix(in srgb, var(--color-paper) 72%, transparent);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    backdrop-filter: blur(16px) saturate(1.4);
     position: sticky;
     top: 0;
     z-index: 50;
+  }
+
+  /* No backdrop-filter support → near-solid fill so text stays readable. */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .site-header {
+      background: color-mix(in srgb, var(--color-paper) 96%, transparent);
+    }
   }
 
   .bar {
@@ -109,8 +196,30 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
       border-color var(--duration-fast) var(--ease-out);
   }
 
+  /* Emboss on hover: the item lifts a hair off the glass — a small rise and
+     a faint warm shadow beneath the glyphs. Refined, not an animation. */
+  .site-nav .nav-link {
+    display: inline-block;
+    transition: color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out),
+      text-shadow var(--duration-fast) var(--ease-out);
+  }
+
   .site-nav a:hover {
     color: var(--color-ink);
+  }
+
+  .site-nav .nav-link:hover {
+    transform: translateY(-1px);
+    text-shadow: 0 1px 1px rgba(33, 29, 24, 0.22);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .site-nav .nav-link:hover,
+    .site-nav .nav-cta:hover {
+      transform: none;
+    }
   }
 
   .site-nav a[aria-current] {
@@ -118,20 +227,173 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
     border-bottom-color: var(--color-ink);
   }
 
-  .site-nav .contact-cta {
+  /* ---- Services dropdown (mega-menu) ---- */
+
+  .dropdown-head {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .dropdown-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 0.5rem;
+    cursor: pointer;
+    color: var(--color-stone);
+  }
+
+  /* On touch devices the chevron is the only way to open the menu (tapping
+     "Services" navigates), so give it a proper touch target. */
+  @media (pointer: coarse) {
+    .dropdown-toggle {
+      padding: 0.875rem 0.75rem;
+    }
+
+    .dropdown-toggle .chevron {
+      width: 9px;
+      height: 9px;
+    }
+  }
+
+  .chevron {
+    display: block;
+    width: 7px;
+    height: 7px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg) translate(-1px, -1px);
+    transition: transform var(--duration-fast) var(--ease-out);
+  }
+
+  .dropdown-toggle[aria-expanded='true'] .chevron {
+    transform: rotate(-135deg) translate(-1px, -1px);
+  }
+
+  /* The panel spans the full header width and sits flush against the header's
+     bottom edge — no dead hover gap between trigger and panel. Open state is
+     entirely JS-driven (hover intent for mouse, the toggle button for
+     keyboard and touch) — deliberately NOT :focus-within, which would force
+     keyboard users to Tab through every panel link to reach the rest of the
+     nav and would keep Escape from visibly closing it. */
+  .dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--color-paper);
+    border-bottom: var(--border-hairline);
+    box-shadow: var(--shadow-card);
+    padding-top: var(--space-md);
+    z-index: 60;
+    max-height: calc(100vh - 5rem);
+    max-height: calc(100dvh - 5rem);
+    overflow-y: auto;
+  }
+
+  .dropdown.open {
+    display: block;
+  }
+
+  .dropdown-inner {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+    gap: var(--space-lg) var(--space-md);
+    padding-bottom: var(--space-md);
+  }
+
+  /* Category title — a link to the category's own page. */
+  .dropdown-cat {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    text-decoration: none;
+    color: var(--color-stone);
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: var(--border-hairline);
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+
+  .dropdown-cat:hover {
+    color: var(--color-ink);
+  }
+
+  .dropdown-group ul {
+    display: grid;
+    gap: 0.375rem;
+    align-items: start;
+    list-style: none;
+  }
+
+  .dropdown-group ul a {
+    display: block;
+    padding-block: 0.125rem;
+    border-bottom: none;
+    text-transform: none;
+    font-family: var(--font-body);
+    letter-spacing: normal;
+    font-size: var(--text-body-sm);
+    color: var(--color-body-strong);
+  }
+
+  .dropdown-group ul a:hover {
+    color: var(--color-steel);
+  }
+
+  .dropdown-more {
+    font-size: var(--text-caption) !important;
+    color: var(--color-steel) !important;
+  }
+
+  .dropdown-foot {
+    border-top: var(--border-hairline);
+    padding-block: 0.875rem var(--space-sm);
+  }
+
+  .dropdown-all {
+    font-family: var(--font-mono) !important;
+    font-size: var(--text-tag) !important;
+    letter-spacing: var(--tracking-tag) !important;
+    text-transform: uppercase !important;
+    color: var(--color-steel) !important;
+    border-bottom: none !important;
+  }
+
+  .dropdown-all:hover {
+    color: var(--color-ink) !important;
+  }
+
+  /* ---- Primary nav CTA: the free diagnostic (the lead magnet) ---- */
+  .site-nav .nav-cta {
     color: var(--color-paper);
     background: var(--color-ink);
     border: 1px solid var(--color-ink);
     border-radius: var(--radius-pill);
     padding: 0.625rem 1.25rem;
-    transition: background var(--duration-fast) var(--ease-out);
+    transition: background var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      transform var(--duration-fast) var(--ease-out),
+      box-shadow var(--duration-fast) var(--ease-out);
   }
 
-  .site-nav .contact-cta:hover,
-  .site-nav .contact-cta[aria-current] {
+  .site-nav .nav-cta:hover,
+  .site-nav .nav-cta[aria-current] {
     background: var(--color-steel);
     border-color: var(--color-steel);
     color: var(--color-paper);
+  }
+
+  .site-nav .nav-cta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px -4px rgba(33, 29, 24, 0.4);
   }
 
   .nav-toggle {
@@ -165,6 +427,9 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
       right: 0;
       background: var(--color-paper);
       border-bottom: var(--border-hairline);
+      max-height: calc(100vh - 4rem);
+      max-height: calc(100dvh - 4rem);
+      overflow-y: auto;
     }
 
     .site-nav.open {
@@ -184,12 +449,70 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
       border-bottom: none;
     }
 
+    .site-nav .nav-link:hover {
+      transform: none;
+      text-shadow: none;
+    }
+
     .site-nav a[aria-current] {
       border-bottom: none;
       color: var(--color-ink);
     }
 
-    .site-nav .contact-cta {
+    /* On mobile the dropdown becomes an inline, static, always-visible
+       nested list — no hover, no absolute positioning. To keep the menu
+       scannable it collapses to the ten CATEGORY links only (each category
+       page lists its workflows), and the whole Services group is ordered
+       BELOW the primary links and the Free Diagnostic CTA so they aren't
+       buried under the catalog. */
+    .site-nav > ul > li.has-dropdown {
+      order: 9;
+    }
+
+    .dropdown-toggle {
+      display: none;
+    }
+
+    .dropdown {
+      display: block;
+      position: static;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 0 0 var(--space-sm);
+      max-height: none;
+      overflow: visible;
+    }
+
+    .dropdown-inner {
+      grid-template-columns: 1fr;
+      gap: 0;
+      padding-bottom: var(--space-2xs);
+    }
+
+    .dropdown-inner.wrap,
+    .dropdown-foot.wrap {
+      padding-inline: 0;
+      max-width: none;
+    }
+
+    /* Categories only — the per-category workflow lists collapse. */
+    .dropdown-group ul {
+      display: none;
+    }
+
+    .dropdown-cat {
+      margin-bottom: 0;
+      padding: var(--space-2xs) 0;
+      border-bottom: none;
+    }
+
+    .dropdown-foot {
+      padding-block: var(--space-2xs) 0;
+      border-top: none;
+    }
+
+    .site-nav .nav-cta {
       display: inline-block;
       margin-top: var(--space-sm);
       text-align: center;
@@ -221,5 +544,59 @@ const ariaCurrent = (href: string): 'page' | 'true' | undefined => {
     const open = toggle.getAttribute('aria-expanded') === 'true';
     toggle.setAttribute('aria-expanded', String(!open));
     nav?.classList.toggle('open', !open);
+  });
+
+  // Services dropdown. Open state lives on the wrapper that contains both
+  // the trigger and the panel. Mouse users get hover intent — a short open
+  // delay so the panel doesn't flash while the cursor crosses the nav, and
+  // a close delay so it can travel from trigger into panel without the menu
+  // vanishing. Keyboard and touch users open it with the toggle button;
+  // Escape closes it (returning focus to the toggle), as do outside clicks
+  // and focus leaving the wrapper.
+  const ddWrap = document.querySelector<HTMLElement>('.has-dropdown');
+  const ddToggle = document.querySelector<HTMLButtonElement>('.dropdown-toggle');
+  const ddPanel = document.getElementById('services-menu');
+  let ddOpenTimer: ReturnType<typeof setTimeout> | undefined;
+  let ddCloseTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function setDropdown(open: boolean) {
+    ddToggle?.setAttribute('aria-expanded', String(open));
+    ddPanel?.classList.toggle('open', open);
+  }
+
+  if (window.matchMedia('(hover: hover)').matches) {
+    ddWrap?.addEventListener('mouseenter', () => {
+      clearTimeout(ddCloseTimer);
+      clearTimeout(ddOpenTimer);
+      ddOpenTimer = setTimeout(() => setDropdown(true), 120);
+    });
+    ddWrap?.addEventListener('mouseleave', () => {
+      clearTimeout(ddOpenTimer);
+      clearTimeout(ddCloseTimer);
+      ddCloseTimer = setTimeout(() => setDropdown(false), 220);
+    });
+  }
+
+  ddToggle?.addEventListener('click', () => {
+    const open = ddToggle.getAttribute('aria-expanded') === 'true';
+    setDropdown(!open);
+  });
+
+  // Close when keyboard focus moves out of the trigger + panel entirely.
+  ddWrap?.addEventListener('focusout', (e) => {
+    const to = e.relatedTarget as Node | null;
+    if (!to || !ddWrap.contains(to)) setDropdown(false);
+  });
+
+  // Close on outside click and on Escape (Escape hands focus back to the
+  // toggle so the panel doesn't strand keyboard users).
+  document.addEventListener('click', (e) => {
+    if (ddWrap && !ddWrap.contains(e.target as Node)) setDropdown(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const active = document.activeElement;
+    setDropdown(false);
+    if (active && ddWrap?.contains(active)) ddToggle?.focus();
   });
 </script>

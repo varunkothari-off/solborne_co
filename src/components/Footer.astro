@@ -2,8 +2,22 @@
 import Mark from './Mark.astro';
 import Wordmark from './Wordmark.astro';
 import { site } from '../data/site';
+import { roadmap } from '../data/roadmap';
 
 const year = new Date().getFullYear();
+
+/** Footer sitemap. Case studies stay out while site.showCaseStudies is false. */
+const companyLinks = [
+  { href: '/about/', label: 'About' },
+  { href: '/approach/', label: 'Approach' },
+  ...(site.showCaseStudies ? [{ href: '/case-studies/', label: 'Case Studies' }] : []),
+  { href: '/contact/', label: 'Contact' },
+];
+
+const startLinks = [
+  { href: '/diagnostic/', label: 'Free Diagnostic' },
+  { href: '/services/', label: 'All Services' },
+];
 ---
 
 <footer class="site-footer">
@@ -14,14 +28,34 @@ const year = new Date().getFullYear();
     <p class="wm"><Wordmark /></p>
     <p class="tagline">{site.tagline}</p>
 
-    <nav aria-label="Footer">
-      <ul role="list">
-        <li><a href="/services/">Services</a></li>
-        <li><a href="/approach/">Approach</a></li>
-        <li><a href="/case-studies/">Case Studies</a></li>
-        <li><a href="/about/">About</a></li>
-        <li><a href="/contact/">Contact</a></li>
-      </ul>
+    <nav class="sitemap" aria-label="Sitemap">
+      <div class="sitemap-col">
+        <p class="sitemap-label">Start here</p>
+        <ul role="list">
+          {startLinks.map((link) => (
+            <li><a href={link.href}>{link.label}</a></li>
+          ))}
+        </ul>
+        <p class="sitemap-label sitemap-label--stacked">Company</p>
+        <ul role="list">
+          {companyLinks.map((link) => (
+            <li><a href={link.href}>{link.label}</a></li>
+          ))}
+        </ul>
+      </div>
+      <div class="sitemap-col sitemap-col--services">
+        <p class="sitemap-label">Services</p>
+        {/* One labeled list; it flows into two visual columns on desktop. */}
+        <ul role="list" class="sitemap-services">
+          {
+            roadmap.map((category) => (
+              <li>
+                <a href={`/services/${category.slug}/`}>{category.name}</a>
+              </li>
+            ))
+          }
+        </ul>
+      </div>
     </nav>
 
     <p class="legal">
@@ -58,31 +92,74 @@ const year = new Date().getFullYear();
     margin-top: 1.125rem;
   }
 
-  nav ul {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--space-sm) var(--space-md);
-    list-style: none;
-    margin-top: var(--space-lg);
+  /* ---- Sitemap ---- */
+  .sitemap {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+    gap: var(--space-lg) var(--space-xl);
+    max-width: 46rem;
+    margin: var(--space-2xl) auto 0;
+    text-align: left;
   }
 
-  nav a {
+  .sitemap-label {
     font-family: var(--font-mono);
-    font-size: var(--text-eyebrow);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
     letter-spacing: var(--tracking-tag);
     text-transform: uppercase;
-    text-decoration: none;
     color: var(--color-stone);
+    margin-bottom: 0.875rem;
+    padding-bottom: 0.5rem;
+    border-bottom: var(--border-hairline);
+  }
+
+  .sitemap-label--stacked {
+    margin-top: var(--space-md);
+  }
+
+  .sitemap ul {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+  }
+
+  /* The ten category links flow across two columns under the one label. */
+  .sitemap-services {
+    display: block;
+    columns: 2;
+    column-gap: var(--space-xl);
+  }
+
+  .sitemap-services li {
+    break-inside: avoid;
+    margin-bottom: 0.5rem;
+  }
+
+  .sitemap a {
+    font-size: var(--text-body-sm);
+    text-decoration: none;
+    color: var(--color-body);
     transition: color var(--duration-fast) var(--ease-out);
   }
 
-  nav a:hover {
+  .sitemap a:hover {
     color: var(--color-ink);
   }
 
+  @media (max-width: 760px) {
+    .sitemap {
+      grid-template-columns: 1fr;
+      gap: var(--space-md);
+    }
+
+    .sitemap-services {
+      columns: 1;
+    }
+  }
+
   .legal {
-    margin-top: var(--space-lg);
+    margin-top: var(--space-2xl);
     font-size: var(--text-caption);
     color: var(--color-stone);
   }

@@ -4,6 +4,14 @@ import PageIntro from '../../components/PageIntro.astro';
 import Section from '../../components/Section.astro';
 import Button from '../../components/Button.astro';
 import { caseStudies } from '../../data/case-studies';
+import { site } from '../../data/site';
+
+// CASE-STUDIES TOGGLE: while site.showCaseStudies is false this page must not
+// be reachable — the write-ups are placeholders naming real clients. Redirect
+// home instead of rendering. Flip the flag in src/data/site.ts to restore.
+if (!site.showCaseStudies) {
+  return Astro.redirect('/');
+}
 
 const pageTitle = 'Case studies — Solborne & Co.';
 const pageDescription =
