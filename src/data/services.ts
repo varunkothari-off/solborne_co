@@ -23,7 +23,7 @@ export const services: Service[] = [
     name: 'Free Diagnostic',
     priceNote: 'self-serve · no call required',
     summary:
-      'Eight plain questions about your firm and how work actually flows through it. You get an honest first read on where AI is worth your attention — and where it is not. The diagnostic is the one thing we don’t hand-check — paid work always is.',
+      'Eight plain questions about your firm and how work actually flows through it. You get an honest first read on where AI is worth your attention — and where it is not. The diagnostic is the one thing we don’t check by hand — every paid deliverable is.',
     deliverables: [
       'A short written read on your situation — automated, which is what makes it free',
       'The one or two areas worth a closer look',
@@ -39,7 +39,7 @@ export const services: Service[] = [
     deliverables: [
       'Audit of your workflows against current AI capability',
       'A prioritized roadmap with confidence levels on each call',
-      'Human-verified before it reaches you',
+      'Checked by a human before it reaches you',
     ],
     flagship: true,
   },
