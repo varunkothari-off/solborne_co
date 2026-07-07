@@ -4,15 +4,15 @@
  * signature over the raw body is verified BEFORE anything else happens; a
  * client-side redirect is never treated as proof of payment.
  *
- * On a verified payment.captured event the booking is marked paid and the
- * discovery call is triggered (through the voice provider seam — the
- * ElevenLabs stub until real keys exist and the release-gate test call has
- * been run).
+ * On a verified payment.captured event the booking is marked paid. That is
+ * ALL this route does now: under the flow spec (2026-07-08) payment unlocks
+ * the screening PACKAGE, and the member schedules their calls from the
+ * dashboard — nothing is auto-dialled on capture. (Ops can still fire a call
+ * for a paid booking via the internal POST /api/calls/trigger.)
  */
 import type { APIRoute } from 'astro';
 import { verifyRazorpayWebhookSignature } from '../../../lib/payments';
 import { internalRpc } from '../../../lib/supabase';
-import { triggerCallForBooking } from '../../../lib/onboarding';
 import { json, errorResponse } from '../../../lib/api';
 
 export const prerender = false;
@@ -56,21 +56,13 @@ export const POST: APIRoute = async ({ request }) => {
       p_raw: event,
     });
 
-    // Fire the discovery call only after the verified capture, and only once.
-    let call: { callId: string; stub: boolean } | null = null;
-    if (!result.already_captured) {
-      try {
-        const triggered = await triggerCallForBooking(result.booking_id);
-        call = { callId: triggered.callId, stub: triggered.stub };
-      } catch (callErr) {
-        // The payment IS captured; a call-trigger failure must not make
-        // Razorpay retry the webhook. Log and let ops re-trigger via
-        // POST /api/calls/trigger.
-        console.error('[webhook] call trigger failed:', callErr);
-      }
-    }
-
-    return json({ ok: true, booking_id: result.booking_id, call });
+    // Capture only. No call is placed here — the member schedules from the
+    // dashboard once the package is active.
+    return json({
+      ok: true,
+      booking_id: result.booking_id,
+      already_captured: result.already_captured,
+    });
   } catch (err) {
     return errorResponse(err);
   }

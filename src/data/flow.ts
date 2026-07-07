@@ -36,36 +36,36 @@ export const flow: FlowStage[] = [
   {
     key: 'screening',
     name: 'The AI screening call',
-    tag: '',
+    tag: 'The package',
     blurb:
-      'Thirty minutes, maximum. Our agent goes deeper than the walk could; schedule it the moment your read is in, or whenever suits.',
+      'Free ends here. One payment unlocks the package — this call, the expert calls, and the final audit. Thirty minutes, maximum; our agent goes deeper than the walk could.',
   },
   {
     key: 'review',
     name: 'Human review',
-    tag: '',
+    tag: 'In the package',
     blurb:
       'Our reviewers go through the screening by hand. If more is needed, we come back to you — the agent for small gaps, a person when it matters.',
   },
   {
     key: 'experts',
     name: 'Expert verification',
-    tag: '',
+    tag: 'In the package',
     blurb:
       'Panel experts from the industries that touch your business check the work. After your first screening you can also book one directly.',
   },
   {
     key: 'audit',
     name: 'The final audit',
-    tag: 'Paid',
+    tag: 'In the package',
     blurb:
       'The full, verified read: where AI earns its keep in your work, with confidence stated on every call, mapped into a roadmap you can run without us.',
   },
   {
     key: 'build',
     name: 'Implementation & retainer',
-    tag: 'Paid',
+    tag: 'Retainer',
     blurb:
-      'If you want it built, we build it — workflow by workflow from the catalog below — and keep it honest under a retainer, with a human review every month.',
+      'If you want it built, we build it — workflow by workflow from the catalog below — as your consultants on a fixed yearly, monthly, weekly, or hourly retainer. Your preference, stated in writing, checked by a human every month.',
   },
 ];

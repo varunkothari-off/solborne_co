@@ -48,32 +48,58 @@ const pageDescription =
           <div data-report></div>
         </div>
 
-        <!-- Screening call -->
+        <!-- Screening package: the paywall. Free ends at the preliminary
+             read; one payment unlocks the AI screening calls, expert
+             screening calls, and the final audit report. -->
         <div class="db-card" data-screening-card>
           <h3 class="db-h">The screening call</h3>
-          <p class="db-quiet">A 30-minute-max call with our AI agent — it goes deeper than the
-          walk, and a human reviews everything after. Schedule it now or whenever suits.</p>
-          <div data-screenings></div>
-          <div class="db-fields">
-            <div class="db-field">
-              <label for="db-phone">Phone (with country code)</label>
-              <input id="db-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98765 43210" />
+
+          <div data-paywall hidden>
+            <p class="db-quiet">Your walk and preliminary read were free. Everything from
+            here is covered by one payment — the screening package:</p>
+            <ul class="db-pkg-list" role="list">
+              <li>AI screening calls — 30 minutes max, as deep as the walk was wide</li>
+              <li>Expert screening calls — book our panel experts after the first screening</li>
+              <li>The final audit report — verified by industry experts before it reaches you</li>
+            </ul>
+            <p class="db-pkg-price" data-pkg-price></p>
+            <div class="db-row">
+              <button type="button" class="db-primary" data-unlock>Unlock the package &rarr;</button>
+              <button type="button" class="db-primary" data-pkg-simulate hidden>
+                Simulate successful payment (stub)
+              </button>
             </div>
-            <div class="db-field">
-              <label for="db-when">When</label>
-              <input id="db-when" type="datetime-local" />
+            <p class="db-quiet db-pkg-note" data-pkg-note hidden></p>
+          </div>
+
+          <div data-scheduler hidden>
+            <p class="db-quiet">Your package is active. A 30-minute-max call with our AI
+            agent — it goes deeper than the walk, and a human reviews everything after.
+            Schedule it now or whenever suits.</p>
+            <div data-screenings></div>
+            <div class="db-fields">
+              <div class="db-field">
+                <label for="db-phone">Phone (with country code)</label>
+                <input id="db-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98765 43210" />
+              </div>
+              <div class="db-field">
+                <label for="db-when">When</label>
+                <input id="db-when" type="datetime-local" />
+              </div>
+            </div>
+            <div class="db-row">
+              <button type="button" class="db-primary" data-call-now>Call me now &rarr;</button>
+              <button type="button" class="db-ghost" data-call-later>Schedule for that time</button>
             </div>
           </div>
-          <div class="db-row">
-            <button type="button" class="db-primary" data-call-now>Call me now &rarr;</button>
-            <button type="button" class="db-ghost" data-call-later>Schedule for that time</button>
-          </div>
+
           <p class="db-quiet db-after">
             After the call: our reviewers go through it by hand. If more is needed, we come
             back to you — the AI agent for small gaps, a person when it matters. After the
             first screening you can always book one of our panel experts directly. Once the
             relevant industry experts have verified the work, you get the final audit — and,
-            if you want, we implement it alongside a retainer.
+            if you want us to build it, we work as your consultants on a retainer: fixed
+            yearly, monthly, weekly, or hourly, your preference.
           </p>
         </div>
 
@@ -254,6 +280,74 @@ const pageDescription =
         }
       }
 
+      // ---- Screening package (the paywall) ----
+      let packageActive = false;
+      let pendingOrderId: string | null = null;
+
+      async function refreshPackage(): Promise<void> {
+        const pkg = await api('/api/packages').catch(() => ({ active: false, price: null }));
+        packageActive = pkg.active === true;
+        root!.querySelector<HTMLElement>('[data-paywall]')!.hidden = packageActive;
+        root!.querySelector<HTMLElement>('[data-scheduler]')!.hidden = !packageActive;
+        if (!packageActive && pkg.price) {
+          root!.querySelector<HTMLElement>('[data-pkg-price]')!.textContent =
+            `One payment — ${pkg.price.display}. No meter, no surprise line items.`;
+        }
+      }
+
+      root.querySelector('[data-unlock]')?.addEventListener('click', async () => {
+        errorEl.hidden = true;
+        const btn = root!.querySelector<HTMLButtonElement>('[data-unlock]')!;
+        btn.disabled = true;
+        btn.textContent = 'Preparing…';
+        try {
+          const res = await api('/api/packages', { method: 'POST' });
+          if (res.active) { await refreshPackage(); return; }
+          pendingOrderId = res.order.order_id;
+          const note = root!.querySelector<HTMLElement>('[data-pkg-note]')!;
+          if (res.order.stub) {
+            note.textContent =
+              `Order ${res.order.order_id} created for ${res.order.display} ` +
+              '(stub — no real payment system is connected yet, and no money moves).';
+            note.hidden = false;
+            root!.querySelector<HTMLElement>('[data-pkg-simulate]')!.hidden = false;
+          } else {
+            // REAL MODE: launch Razorpay Checkout here once keys exist —
+            // see docs/wiring-checklist.md ("Go-live: Razorpay").
+            note.textContent =
+              'Real payment keys are configured but Checkout is not wired on this page yet — see docs/wiring-checklist.md.';
+            note.hidden = false;
+          }
+        } catch (err) {
+          fail(err instanceof Error ? err.message : 'Could not start the purchase.');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Unlock the package →';
+        }
+      });
+
+      root.querySelector('[data-pkg-simulate]')?.addEventListener('click', async () => {
+        errorEl.hidden = true;
+        const btn = root!.querySelector<HTMLButtonElement>('[data-pkg-simulate]')!;
+        btn.disabled = true;
+        btn.textContent = 'Simulating…';
+        try {
+          const res = await fetch('/api/dev/simulate-payment', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ order_id: pendingOrderId }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.simulated) throw new Error(data.error ?? 'simulation failed');
+          await refreshPackage();
+          await load();
+        } catch (err) {
+          fail(err instanceof Error ? err.message : 'Simulation failed.');
+          btn.disabled = false;
+          btn.textContent = 'Simulate successful payment (stub)';
+        }
+      });
+
       // ---- Screenings ----
       function renderScreenings(items: any[]) {
         const box = root!.querySelector<HTMLElement>('[data-screenings]')!;
@@ -324,6 +418,7 @@ const pageDescription =
         root!.querySelector<HTMLElement>('[data-loading]')!.hidden = true;
         root!.querySelector<HTMLElement>('[data-content]')!.hidden = false;
 
+        await refreshPackage();
         const screenings = await api('/api/me/screenings').catch(() => ({ screenings: [] }));
         renderScreenings(screenings.screenings ?? []);
         const hasScreening = (screenings.screenings ?? []).length > 0;
@@ -605,6 +700,45 @@ const pageDescription =
 
   @media (prefers-reduced-motion: reduce) {
     .db-gen-dot { animation: none; }
+  }
+
+  /* ---- Screening package paywall ---- */
+  .db-pkg-list {
+    list-style: none;
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: var(--space-md);
+  }
+
+  .db-pkg-list li {
+    position: relative;
+    padding-left: 1.5rem;
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body-strong);
+  }
+
+  .db-pkg-list li::before {
+    content: '+';
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--color-positive);
+  }
+
+  /* A price is a figure: mono + Steel, per the brand rule. */
+  .db-pkg-price {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono-medium);
+    font-size: var(--text-body);
+    color: var(--color-steel);
+    margin-bottom: var(--space-md);
+  }
+
+  .db-pkg-note {
+    margin-top: var(--space-sm);
   }
 
   /* ---- Screening ---- */

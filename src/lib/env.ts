@@ -66,10 +66,34 @@ export const stubMode = {
   },
 };
 
-/** Discovery-call order amount in paise. Placeholder default; founder sets
- *  the real price before go-live (see docs/wiring-checklist.md). */
+/** Discovery-call order amount in paise. LEGACY (/book flow only). */
 export function discoveryCallAmountPaise(): number {
   const raw = envVar('DISCOVERY_CALL_AMOUNT_PAISE');
   const n = raw ? Number.parseInt(raw, 10) : NaN;
   return Number.isFinite(n) && n > 0 ? n : 99900;
+}
+
+/**
+ * The screening package price — Phase-0 fair-pricing research: USD-first at
+ * $1,497 flat (the "AI Opportunity Audit" band, ~40-55% under the $2,000-
+ * $3,500 market low end). One payment covers the AI screening calls, expert
+ * screening calls, and the final audit report. INR storefront (₹9,900)
+ * comes later per the research's geo-gated sequencing.
+ */
+export function screeningPackagePrice(): {
+  amountMinor: number;
+  currency: string;
+  display: string;
+} {
+  const rawAmount = envVar('SCREENING_PACKAGE_AMOUNT_MINOR');
+  const parsed = rawAmount ? Number.parseInt(rawAmount, 10) : NaN;
+  const amountMinor = Number.isFinite(parsed) && parsed > 0 ? parsed : 149700;
+  const currency = (envVar('SCREENING_PACKAGE_CURRENCY') || 'USD').toUpperCase();
+  const major = amountMinor / 100;
+  const symbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : `${currency} `;
+  const display = `${symbol}${major.toLocaleString('en-US', {
+    minimumFractionDigits: major % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+  return { amountMinor, currency, display };
 }
