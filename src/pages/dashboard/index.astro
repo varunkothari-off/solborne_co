@@ -296,20 +296,34 @@ const pageDescription =
       }
 
       // Returning from Stripe Checkout (?package=success): the webhook is
-      // async, so poll briefly until the package flips active.
+      // async and can lag well past a few seconds, so poll for up to ~45s,
+      // and ALSO re-check whenever the tab regains focus. The ?package=success
+      // breadcrumb is kept until the package actually activates, so a plain
+      // reload keeps recovering. On give-up we leave a clear, actionable note
+      // rather than a frozen "confirming…".
+      let confirmingReturn = false;
+
       async function confirmStripeReturn(): Promise<void> {
         if (new URLSearchParams(location.search).get('package') !== 'success') return;
+        if (confirmingReturn) return;
+        confirmingReturn = true;
         const note = root!.querySelector<HTMLElement>('[data-pkg-note]')!;
-        for (let i = 0; i < 8 && !packageActive; i += 1) {
-          if (!packageActive) {
-            note.textContent = 'Confirming your payment…';
-            note.hidden = false;
-          }
+        for (let i = 0; i < 22 && !packageActive; i += 1) {
+          note.textContent = 'Confirming your payment — this can take a moment…';
+          note.hidden = false;
           await refreshPackage();
           if (packageActive) break;
-          await new Promise((r) => setTimeout(r, 1500));
+          await new Promise((r) => setTimeout(r, 2000));
         }
-        history.replaceState(null, '', location.pathname);
+        if (packageActive) {
+          history.replaceState(null, '', location.pathname);
+        } else {
+          note.textContent =
+            'Payment received — Stripe is still confirming it. This can take a minute; ' +
+            'refresh the page and your package will be unlocked. If it persists, write to us from the contact page.';
+          note.hidden = false;
+        }
+        confirmingReturn = false;
       }
 
       root.querySelector('[data-unlock]')?.addEventListener('click', async () => {
@@ -492,6 +506,14 @@ const pageDescription =
         if (pollHandle) clearTimeout(pollHandle);
         await supabase.auth.signOut();
         location.href = '/';
+      });
+
+      // Belt-and-braces recovery: if a member returned from Stripe before the
+      // webhook landed, re-check the package whenever they refocus the tab.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && token && !packageActive) {
+          refreshPackage().catch(() => {});
+        }
       });
 
       load().catch((err) => {

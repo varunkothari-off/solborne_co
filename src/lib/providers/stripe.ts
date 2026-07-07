@@ -12,12 +12,34 @@
  * The webhook (checkout.session.completed) is the only trusted "paid" signal;
  * the success redirect is never treated as proof of payment.
  */
-import type { CreateOrderInput, PaymentOrder, PaymentProvider } from '../payments';
+import type {
+  CreateOrderInput,
+  ExistingOrder,
+  PaymentOrder,
+  PaymentProvider,
+} from '../payments';
 import { requireEnv } from '../env';
 
 export const stripeReal: PaymentProvider = {
   name: 'stripe',
   isStub: false,
+
+  // Reuse an existing Checkout Session while it is still open, so a resumed
+  // purchase does not open a SECOND payable session for the same booking
+  // (double-charge prevention). Returns null if expired/complete/unknown.
+  async getOrder(orderId: string): Promise<ExistingOrder | null> {
+    const secret = requireEnv('STRIPE_SECRET_KEY');
+    const res = await fetch(
+      `https://api.stripe.com/v1/checkout/sessions/${encodeURIComponent(orderId)}`,
+      { headers: { authorization: `Bearer ${secret}` } }
+    );
+    if (!res.ok) return null;
+    const session = (await res.json()) as { status?: string; url?: string };
+    if (session.status === 'open' && session.url) {
+      return { open: true, checkoutUrl: session.url };
+    }
+    return { open: false };
+  },
 
   async createOrder(input: CreateOrderInput): Promise<PaymentOrder> {
     const secret = requireEnv('STRIPE_SECRET_KEY');

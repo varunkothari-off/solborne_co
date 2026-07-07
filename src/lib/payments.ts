@@ -51,10 +51,21 @@ export interface PaymentOrder {
   stub: boolean;
 }
 
+export interface ExistingOrder {
+  /** true while the Checkout Session is still payable. */
+  open: boolean;
+  /** hosted Checkout URL to reuse, when still open. */
+  checkoutUrl?: string;
+}
+
 export interface PaymentProvider {
   readonly name: string;
   readonly isStub: boolean;
   createOrder(input: CreateOrderInput): Promise<PaymentOrder>;
+  /** Retrieve an existing order so an open Checkout Session can be REUSED
+   *  instead of minting a second payable one (double-charge prevention).
+   *  Returns null when it can't be reused (expired/complete/unknown). */
+  getOrder?(orderId: string): Promise<ExistingOrder | null>;
 }
 
 export function paymentProvider(): PaymentProvider {

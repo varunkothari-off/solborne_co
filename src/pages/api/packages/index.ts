@@ -42,6 +42,8 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     const purchase = await userRpc<{
       booking_id: string;
       already_active: boolean;
+      resumed?: boolean;
+      pending_order_id?: string | null;
     }>(auth.token, 'purchase_screening_package');
 
     if (purchase.already_active) {
@@ -51,6 +53,38 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     const price = screeningPackagePrice();
     const origin = new URL(request.url).origin;
     const provider = paymentProvider();
+
+    // Resume: reuse the existing order instead of opening a SECOND payable
+    // Checkout Session for the same booking (double-charge prevention). In
+    // real mode, only reuse while the session is still open; otherwise fall
+    // through and mint a fresh one.
+    if (purchase.resumed && purchase.pending_order_id) {
+      const orderRow = {
+        active: false,
+        booking_id: purchase.booking_id,
+        order: {
+          order_id: purchase.pending_order_id,
+          amount_minor: price.amountMinor,
+          currency: price.currency,
+          display: price.display,
+          stub: provider.isStub,
+        },
+      };
+      if (provider.isStub) {
+        return json({ ...orderRow, order: { ...orderRow.order, checkout_url: null } }, 200);
+      }
+      const existing = provider.getOrder
+        ? await provider.getOrder(purchase.pending_order_id).catch(() => null)
+        : null;
+      if (existing?.open && existing.checkoutUrl) {
+        return json(
+          { ...orderRow, order: { ...orderRow.order, checkout_url: existing.checkoutUrl } },
+          200
+        );
+      }
+      // else: session gone/expired — mint a fresh one below.
+    }
+
     const order = await provider.createOrder({
       bookingId: purchase.booking_id,
       amountMinor: price.amountMinor,

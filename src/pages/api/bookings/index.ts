@@ -16,12 +16,23 @@ import { getUserFromRequest, userRpc, internalRpc } from '../../../lib/supabase'
 import { json, errorResponse, readJson, isUuid } from '../../../lib/api';
 import { paymentProvider } from '../../../lib/payments';
 import { computeCallPlan } from '../../../lib/onboarding';
-import { discoveryCallAmountPaise } from '../../../lib/env';
+import { discoveryCallAmountPaise, stubMode } from '../../../lib/env';
 import { rateLimit, clientKey, tooManyRequests } from '../../../lib/rateLimit';
 
 export const prerender = false;
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
+  // LEGACY, and unlinked from the live flow (superseded by the walk +
+  // screening package). It hardcodes INR through the payment seam, so with a
+  // real (USD) Stripe key it would mischarge — refuse in real mode. In stub
+  // mode it stays available for the shared-infra E2E tests.
+  if (!stubMode.stripe) {
+    return json(
+      { error: 'the legacy discovery-call booking flow is retired — start with the walk' },
+      410
+    );
+  }
+
   // Cap booking/order-creation abuse: 15 per IP per minute.
   const rl = rateLimit(clientKey(clientAddress, request, 'bookings'), 15, 60_000);
   if (!rl.ok) return tooManyRequests(rl);
