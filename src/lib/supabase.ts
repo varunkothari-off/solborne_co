@@ -92,6 +92,45 @@ export async function getUserFromRequest(request: Request): Promise<{
   return { user: data.user, token };
 }
 
+/**
+ * Server-only storage client (service role). Returns null while the
+ * service-role key is a placeholder — callers must degrade gracefully
+ * (e.g. the walk keeps transcripts but skips archiving raw audio).
+ */
+function serviceClient(): SupabaseClient | null {
+  const url = realEnv('SUPABASE_URL');
+  const key = realEnv('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) return null;
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/**
+ * Archive a walk voice recording in the private walk-audio bucket.
+ * Returns the storage path, or null when the service key isn't set yet.
+ */
+export async function storeWalkAudio(
+  walkId: string,
+  section: string,
+  index: number,
+  audio: Buffer,
+  mime: string
+): Promise<string | null> {
+  const client = serviceClient();
+  if (!client) return null;
+  const ext = mime.includes('ogg') ? 'ogg' : mime.includes('mp4') ? 'm4a' : 'webm';
+  const path = `${walkId}/${section}-${index}.${ext}`;
+  const { error } = await client.storage
+    .from('walk-audio')
+    .upload(path, audio, { contentType: mime || 'audio/webm', upsert: true });
+  if (error) {
+    console.warn('[storage] walk audio upload failed:', error.message);
+    return null;
+  }
+  return path;
+}
+
 /** Constant-time check of the internal-secret header for internal routes.
  *  Uses realEnv, so a placeholder INTERNAL_API_SECRET is treated as absent
  *  and the gate fails CLOSED rather than accepting the committed template
