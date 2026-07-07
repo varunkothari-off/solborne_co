@@ -4,27 +4,24 @@ import PageIntro from '../components/PageIntro.astro';
 import Section from '../components/Section.astro';
 import Button from '../components/Button.astro';
 import ConfidenceBar from '../components/ConfidenceBar.astro';
-import { services, type Service } from '../data/services';
 import { caseStudies } from '../data/case-studies';
 import { site } from '../data/site';
+import { flow } from '../data/flow';
+import { walk } from '../data/walk';
 
 const pageTitle = `${site.name} — ${site.tagline}`;
 const pageDescription =
   'Independent AI advisory for small firms, solo practices, and growing brands. Clear, human-checked answers in plain language — affordable and within reach.';
 
-/** Home-page service highlights, pulled from the catalog in display order.
-    The free diagnostic is deliberately absent — it is the lead-capture flow,
-    not a service (it lives in the nav CTA and the hero CTA instead). */
-const highlightSlugs = ['opportunity-audit', 'module-build', 'retainer-starter'];
-const highlights = highlightSlugs
-  .map((slug) => services.find((s) => s.slug === slug))
-  .filter((s): s is Service => s !== undefined);
+/** Home highlights: the first three stages of THE FLOW (it is one journey,
+    not a menu of services — the full flow lives on /services/). */
+const highlights = flow.slice(0, 3);
 
 const steps = [
   {
     num: '01',
     name: 'Ask',
-    text: 'A short run of plain questions that follow where your answers lead — about how work actually moves through your firm — and an honest first read, including where AI is not worth your attention.',
+    text: 'You say it out loud — no forms. A few plain questions, then the questions your answers earn, and an honest first read — including where AI is not worth your attention.',
   },
   {
     num: '02',
@@ -57,24 +54,24 @@ const steps = [
 
   <div class="wrap">
     <div class="cta-row">
-      <Button href="/diagnostic/">Start with the free diagnostic</Button>
-      <Button href="/services/" variant="ghost">See services</Button>
+      <Button href={walk.path}>Begin the walk</Button>
+      <Button href="/services/" variant="ghost">See how it flows</Button>
     </div>
   </div>
 
-  <Section label="What we do" title="The questions that used to require an expensive consultant">
+  <Section label="How it starts" title="One flow — you talk, we listen, humans check">
     <div class="service-grid">
       {
-        highlights.map((s) => (
-          <article class:list={['card', { flagship: s.flagship }]}>
-            <h3>{s.name}</h3>
-            <p class="price-note">{s.priceNote}</p>
-            <p class="summary">{s.summary}</p>
+        highlights.map((stage, i) => (
+          <article class="card">
+            <h3>{stage.name}</h3>
+            <p class="price-note">{stage.tag ? stage.tag : `Stage ${i + 1}`}</p>
+            <p class="summary">{stage.blurb}</p>
           </article>
         ))
       }
     </div>
-    <p class="more"><a href="/services/">All services &rarr;</a></p>
+    <p class="more"><a href="/services/">The whole flow, and the catalog it delivers &rarr;</a></p>
   </Section>
 
   <Section label="How we work" title="Your guide, not your stand-in">
@@ -137,8 +134,8 @@ const steps = [
           read that costs nothing.
         </p>
         <div class="cta-row cta-row--stage">
-          <Button href="/diagnostic/">Start with the free diagnostic</Button>
-          <Button href="/services/" variant="ghost">See services</Button>
+          <Button href={walk.path}>Begin the walk</Button>
+          <Button href="/services/" variant="ghost">See how it flows</Button>
         </div>
       </div>
     </div>

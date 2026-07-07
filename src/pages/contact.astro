@@ -3,12 +3,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PageIntro from '../components/PageIntro.astro';
 import Section from '../components/Section.astro';
 import { site } from '../data/site';
-import { services } from '../data/services';
+import { walk } from '../data/walk';
 
 const pageTitle = 'Contact — Solborne & Co.';
 const pageDescription =
   "Tell us where you are with AI and we'll give you an honest first read. If we're not the right fit, we'll say so and point you somewhere better.";
 const notSureOption = 'Not sure yet — just talking';
+// Needs map to stages of THE FLOW (it's one journey, not a service menu).
+const needOptions = [
+  `${walk.name} — getting started`,
+  'The final audit',
+  'Implementation & retainer',
+  'Something else',
+];
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
@@ -124,7 +131,7 @@ const notSureOption = 'Not sure yet — just talking';
           <div class="field">
             <label for="contact-need">What do you need?</label>
             <select id="contact-need" name="need">
-              {services.map((service) => <option value={service.name}>{service.name}</option>)}
+              {needOptions.map((need) => <option value={need}>{need}</option>)}
               <option value={notSureOption} selected>{notSureOption}</option>
             </select>
           </div>
@@ -176,9 +183,9 @@ const notSureOption = 'Not sure yet — just talking';
         </article>
 
         <p class="side-note">
-          Not sure what to ask for? The <a href="/diagnostic/">free diagnostic</a> is the usual
-          starting point — a short set of plain questions that adapt to your answers, no call
-          attached.
+          Not sure what to ask for? Everyone starts the same way —
+          <a href={walk.path}>{walk.name.toLowerCase()}</a>: a few plain questions you answer
+          out loud, and an honest read built from what you say.
         </p>
       </aside>
     </div>

@@ -1,0 +1,716 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageIntro from '../../components/PageIntro.astro';
+import Section from '../../components/Section.astro';
+import { walk } from '../../data/walk';
+
+/**
+ * Members dashboard. The minute a member lands:
+ *  1. their walk is claimed (from the ?walk=/localStorage handoff),
+ *  2. every spoken answer is shown, editable,
+ *  3. below it, the preliminary report builds live (status + elapsed time —
+ *     never the internal workings), then renders when ready,
+ *  4. the journey map shows where they are and what comes after,
+ *  5. the AI screening call can be scheduled — now, or whenever suits.
+ */
+const pageTitle = 'Your dashboard — Solborne & Co.';
+const pageDescription =
+  'Your walk, your preliminary report as it is built, and your screening call.';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <PageIntro eyebrow="Members" title="Here's where you stand.">
+    <p>
+      Everything you told us, the read we're building from it, and the next
+      step — in one place.
+    </p>
+  </PageIntro>
+
+  <Section label="Your walk">
+    <div class="db" data-dashboard>
+      <p class="db-loading" data-loading>Checking your session…</p>
+
+      <div data-content hidden>
+        <!-- Journey map -->
+        <div class="db-journey" data-journey></div>
+
+        <!-- Answers (editable) -->
+        <div class="db-card">
+          <h3 class="db-h">What you told us</h3>
+          <p class="db-quiet">Word for word, as transcribed. Click any answer to correct it —
+          the report is built from what stands here.</p>
+          <div data-answers></div>
+        </div>
+
+        <!-- Report -->
+        <div class="db-card" data-report-card>
+          <h3 class="db-h">Your preliminary read</h3>
+          <div data-report></div>
+        </div>
+
+        <!-- Screening call -->
+        <div class="db-card" data-screening-card>
+          <h3 class="db-h">The screening call</h3>
+          <p class="db-quiet">A 30-minute-max call with our AI agent — it goes deeper than the
+          walk, and a human reviews everything after. Schedule it now or whenever suits.</p>
+          <div data-screenings></div>
+          <div class="db-fields">
+            <div class="db-field">
+              <label for="db-phone">Phone (with country code)</label>
+              <input id="db-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98765 43210" />
+            </div>
+            <div class="db-field">
+              <label for="db-when">When</label>
+              <input id="db-when" type="datetime-local" />
+            </div>
+          </div>
+          <div class="db-row">
+            <button type="button" class="db-primary" data-call-now>Call me now &rarr;</button>
+            <button type="button" class="db-ghost" data-call-later>Schedule for that time</button>
+          </div>
+          <p class="db-quiet db-after">
+            After the call: our reviewers go through it by hand. If more is needed, we come
+            back to you — the AI agent for small gaps, a person when it matters. After the
+            first screening you can always book one of our panel experts directly. Once the
+            relevant industry experts have verified the work, you get the final audit — and,
+            if you want, we implement it alongside a retainer.
+          </p>
+        </div>
+
+        <p class="db-signout"><button type="button" class="db-ghost" data-signout>Sign out</button></p>
+      </div>
+      <p class="db-error" data-error hidden></p>
+    </div>
+  </Section>
+
+  <script>
+    import { createClient } from '@supabase/supabase-js';
+
+    const root = document.querySelector<HTMLElement>('[data-dashboard]');
+    if (root) {
+      const supabase = createClient(
+        import.meta.env.PUBLIC_SUPABASE_URL,
+        import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const errorEl = root.querySelector<HTMLElement>('[data-error]')!;
+      const fail = (msg: string) => { errorEl.textContent = msg; errorEl.hidden = false; };
+      const fmt = (secs: number) =>
+        `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`;
+
+      let token = '';
+      let walkId: string | null = null;
+      let walkStatus = '';
+
+      async function api(path: string, init?: RequestInit): Promise<any> {
+        const res = await fetch(path, {
+          ...init,
+          headers: {
+            'content-type': 'application/json',
+            authorization: `Bearer ${token}`,
+            ...(init?.headers ?? {}),
+          },
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error((data && data.error) || `request failed (${res.status})`);
+        return data;
+      }
+
+      // ---- Journey map ----
+      const JOURNEY = [
+        { key: 'walk', label: 'The walk' },
+        { key: 'report', label: 'Preliminary read' },
+        { key: 'screening', label: 'AI screening call' },
+        { key: 'review', label: 'Human review' },
+        { key: 'experts', label: 'Expert verification' },
+        { key: 'audit', label: 'Final audit' },
+        { key: 'build', label: 'Implementation & retainer' },
+      ];
+      function renderJourney(activeKey: string, doneKeys: string[]) {
+        const box = root!.querySelector<HTMLElement>('[data-journey]')!;
+        box.innerHTML =
+          `<p class="db-journey-label">Where you are</p>` +
+          `<ol class="db-steps" role="list">` +
+          JOURNEY.map((s) => {
+            const cls = doneKeys.includes(s.key)
+              ? ' is-done'
+              : s.key === activeKey
+                ? ' is-active'
+                : '';
+            return `<li class="db-step${cls}"><span class="db-dot" aria-hidden="true"></span>${esc(s.label)}</li>`;
+          }).join('') +
+          `</ol>`;
+      }
+
+      // ---- Answers ----
+      function renderAnswers(walkData: any) {
+        const box = root!.querySelector<HTMLElement>('[data-answers]')!;
+        const answers: any[] = walkData.answers ?? [];
+        if (answers.length === 0) {
+          box.innerHTML = `<p class="db-quiet">No walk found on this account yet — <a href="/walk/">take the walk</a>.</p>`;
+          return;
+        }
+        box.innerHTML = answers
+          .map((a) => {
+            const text = a.edited_transcript ?? a.transcript;
+            return `
+              <div class="db-answer" data-answer-id="${esc(a.id)}">
+                <p class="db-answer-q">${esc(a.question)}</p>
+                <p class="db-answer-t" data-text tabindex="0" role="button"
+                   aria-label="Edit this answer">${esc(text)}</p>
+              </div>`;
+          })
+          .join('');
+        box.querySelectorAll<HTMLElement>('[data-text]').forEach((el) => {
+          const startEdit = () => {
+            const wrap = el.closest<HTMLElement>('[data-answer-id]')!;
+            const current = el.textContent ?? '';
+            wrap.innerHTML =
+              `<p class="db-answer-q">${wrap.querySelector('.db-answer-q')!.innerHTML}</p>` +
+              `<textarea class="db-answer-edit" rows="4">${esc(current)}</textarea>` +
+              `<div class="db-row"><button type="button" class="db-primary" data-save>Save</button>` +
+              `<button type="button" class="db-ghost" data-cancel>Cancel</button></div>`;
+            wrap.querySelector('[data-save]')?.addEventListener('click', async () => {
+              const text = wrap.querySelector<HTMLTextAreaElement>('.db-answer-edit')!.value.trim();
+              if (!text) return;
+              try {
+                await api(`/api/answers/${wrap.dataset.answerId}/edit`, {
+                  method: 'POST',
+                  body: JSON.stringify({ text }),
+                });
+                await load(); // re-render everything from the source of truth
+              } catch (err) {
+                fail(err instanceof Error ? err.message : 'Could not save the edit.');
+              }
+            });
+            wrap.querySelector('[data-cancel]')?.addEventListener('click', () => load());
+          };
+          el.addEventListener('click', startEdit);
+          el.addEventListener('keydown', (e) => {
+            if ((e as KeyboardEvent).key === 'Enter') startEdit();
+          });
+        });
+      }
+
+      // ---- Report ----
+      let pollHandle: ReturnType<typeof setTimeout> | null = null;
+      let genTick: ReturnType<typeof setInterval> | null = null;
+
+      function renderReportReady(report: any) {
+        if (genTick) clearInterval(genTick);
+        const box = root!.querySelector<HTMLElement>('[data-report]')!;
+        const matches = (report.matches ?? [])
+          .map(
+            (m: any) =>
+              `<li><a href="/services/${esc(m.slug)}/">${esc(m.name)} &rarr;</a><span>${esc(m.reason)}</span></li>`
+          )
+          .join('');
+        box.innerHTML =
+          (report.stub
+            ? `<p class="db-stubnote">Preview report — the real, researched read switches on when the Anthropic key is added.</p>`
+            : '') +
+          `<p class="db-headline">${esc(report.headline ?? '')}</p>` +
+          (report.sections ?? [])
+            .map(
+              (s: any) =>
+                `<div class="db-rsec"><h4>${esc(s.title)}</h4><p>${esc(s.body)}</p></div>`
+            )
+            .join('') +
+          (matches
+            ? `<div class="db-rsec"><h4>Where this maps in our catalog</h4><ul class="db-matches" role="list">${matches}</ul></div>`
+            : '');
+      }
+
+      function renderReportGenerating(startedAt: string | null, avgSeconds: number | null) {
+        const box = root!.querySelector<HTMLElement>('[data-report]')!;
+        box.innerHTML =
+          `<p class="db-gen"><span class="db-gen-dot" aria-hidden="true"></span>Building your read — from your words, and from what we find researching you.</p>` +
+          `<p class="db-quiet" data-gen-elapsed></p>` +
+          (avgSeconds
+            ? `<p class="db-quiet">Reports usually take about ${fmt(avgSeconds)}.</p>`
+            : `<p class="db-quiet">You're among the first — once enough reports have been built, we'll show the typical time here.</p>`);
+        const elapsedEl = box.querySelector<HTMLElement>('[data-gen-elapsed]')!;
+        const t0 = startedAt ? new Date(startedAt).getTime() : Date.now();
+        if (genTick) clearInterval(genTick);
+        genTick = setInterval(() => {
+          elapsedEl.textContent = `Elapsed: ${fmt(Math.max(0, Math.floor((Date.now() - t0) / 1000)))}`;
+        }, 1000);
+      }
+
+      async function pollReport() {
+        if (!walkId) return;
+        try {
+          const s = await api(`/api/walks/${walkId}/report`);
+          if (s.status === 'report_ready') {
+            await load();
+            return;
+          }
+          renderReportGenerating(s.report_started_at, s.average_generation_seconds);
+          pollHandle = setTimeout(pollReport, 2500);
+        } catch {
+          pollHandle = setTimeout(pollReport, 5000);
+        }
+      }
+
+      // ---- Screenings ----
+      function renderScreenings(items: any[]) {
+        const box = root!.querySelector<HTMLElement>('[data-screenings]')!;
+        if (!items.length) { box.innerHTML = ''; return; }
+        box.innerHTML =
+          `<ul class="db-screenings" role="list">` +
+          items
+            .map((s) => {
+              const when = new Date(s.scheduled_at).toLocaleString();
+              const label =
+                s.status === 'triggered'
+                  ? 'call placed'
+                  : s.status === 'completed'
+                    ? 'complete'
+                    : `scheduled — ${when}`;
+              return `<li><span class="db-scr-status">${esc(s.status)}</span> ${esc(label)}</li>`;
+            })
+            .join('') +
+          `</ul>`;
+      }
+
+      async function scheduleScreening(when: 'now' | string) {
+        errorEl.hidden = true;
+        const phone = root!.querySelector<HTMLInputElement>('#db-phone')!.value.trim();
+        if (!/^\+?[0-9][0-9 ()\-]{6,20}$/.test(phone)) {
+          fail('A reachable phone number (with country code) is needed for the call.');
+          return;
+        }
+        try {
+          await api('/api/screenings', {
+            method: 'POST',
+            body: JSON.stringify({ walk_id: walkId, phone, when }),
+          });
+          const mine = await api('/api/me/screenings');
+          renderScreenings(mine.screenings ?? []);
+        } catch (err) {
+          fail(err instanceof Error ? err.message : 'Could not schedule the call.');
+        }
+      }
+
+      // ---- Load everything ----
+      async function load() {
+        errorEl.hidden = true;
+        const { data } = await supabase.auth.getSession();
+        if (!data.session) {
+          location.href = '/login/';
+          return;
+        }
+        token = data.session.access_token;
+
+        // Claim the walk handed over from the walk/login pages.
+        const pending =
+          new URLSearchParams(location.search).get('walk') ||
+          localStorage.getItem('solborne-walk-id');
+        if (pending) {
+          try {
+            await api(`/api/walks/${pending}/claim`, { method: 'POST' });
+            localStorage.removeItem('solborne-walk-id');
+          } catch {
+            /* stale/foreign id — ignore */
+          }
+        }
+
+        const mine = await api('/api/me/walks');
+        const walks: any[] = mine.walks ?? [];
+        const current = walks[0] ?? null;
+
+        root!.querySelector<HTMLElement>('[data-loading]')!.hidden = true;
+        root!.querySelector<HTMLElement>('[data-content]')!.hidden = false;
+
+        const screenings = await api('/api/me/screenings').catch(() => ({ screenings: [] }));
+        renderScreenings(screenings.screenings ?? []);
+        const hasScreening = (screenings.screenings ?? []).length > 0;
+
+        if (!current) {
+          renderJourney('walk', []);
+          renderAnswers({ answers: [] });
+          root!.querySelector<HTMLElement>('[data-report]')!.innerHTML =
+            `<p class="db-quiet">Your read appears here once you've <a href="/walk/">taken the walk</a>.</p>`;
+          return;
+        }
+
+        walkId = current.walk_id;
+        walkStatus = current.status;
+        renderAnswers(current);
+
+        const done: string[] = ['walk'];
+        let active = 'report';
+        if (current.status === 'report_ready') {
+          done.push('report');
+          active = hasScreening ? 'review' : 'screening';
+          if (hasScreening) done.push('screening');
+          renderReportReady(current.report ?? {});
+        } else if (current.status === 'report_generating') {
+          renderReportGenerating(current.report_started_at, null);
+          pollReport();
+        } else if (current.status === 'submitted') {
+          // Kick generation, then poll — the member just sees it building.
+          renderReportGenerating(null, null);
+          try {
+            await api(`/api/walks/${walkId}/report`, { method: 'POST' });
+          } catch { /* pollReport surfaces state either way */ }
+          pollReport();
+        } else {
+          active = 'walk';
+          root!.querySelector<HTMLElement>('[data-report]')!.innerHTML =
+            `<p class="db-quiet">Finish <a href="/walk/">your walk</a> first — the read is built from it.</p>`;
+        }
+        renderJourney(active, done);
+      }
+
+      // ---- Wire buttons ----
+      root.querySelector('[data-call-now]')?.addEventListener('click', () => scheduleScreening('now'));
+      root.querySelector('[data-call-later]')?.addEventListener('click', () => {
+        const when = root!.querySelector<HTMLInputElement>('#db-when')!.value;
+        if (!when) { fail('Pick a date and time first, or use "Call me now".'); return; }
+        scheduleScreening(new Date(when).toISOString());
+      });
+      root.querySelector('[data-signout]')?.addEventListener('click', async () => {
+        if (pollHandle) clearTimeout(pollHandle);
+        await supabase.auth.signOut();
+        location.href = '/';
+      });
+
+      load().catch((err) => {
+        root!.querySelector<HTMLElement>('[data-loading]')!.hidden = true;
+        fail(err instanceof Error ? err.message : 'Could not load your dashboard.');
+      });
+    }
+  </script>
+</BaseLayout>
+
+<style is:global>
+  /* Dashboard island renders via innerHTML; global, .db- namespaced. */
+  .db {
+    max-width: 50rem;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .db-loading {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+  }
+
+  .db [data-content] {
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .db-card {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: clamp(1.5rem, 1rem + 3vw, 2.25rem);
+  }
+
+  .db-h {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--text-h3);
+    color: var(--color-ink);
+    margin-bottom: 0.625rem;
+  }
+
+  .db-quiet {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    margin-bottom: var(--space-sm);
+  }
+
+  /* ---- Journey ---- */
+  .db-journey {
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 1.125rem 1.375rem;
+  }
+
+  .db-journey-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.75rem;
+  }
+
+  .db-steps {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.25rem;
+  }
+
+  .db-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+  }
+
+  .db-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-stone);
+  }
+
+  .db-step.is-active { color: var(--color-ink); }
+  .db-step.is-active .db-dot { border-color: var(--color-steel); background: var(--color-steel); }
+  .db-step.is-done { color: var(--color-positive); }
+  .db-step.is-done .db-dot { border-color: var(--color-positive); background: var(--color-positive); }
+
+  /* ---- Answers ---- */
+  .db-answer {
+    border-top: var(--border-hairline);
+    padding: 0.875rem 0;
+  }
+
+  .db-answer-q {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.375rem;
+  }
+
+  .db-answer-t {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+    white-space: pre-wrap;
+    cursor: text;
+    border-left: 2px solid transparent;
+    padding-left: 0.5rem;
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .db-answer-t:hover,
+  .db-answer-t:focus-visible {
+    border-left-color: var(--color-steel);
+  }
+
+  .db-answer-edit {
+    width: 100%;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-swatch);
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    line-height: var(--leading-body);
+    color: var(--color-ink);
+    margin-bottom: 0.625rem;
+  }
+
+  /* ---- Report ---- */
+  .db-stubnote {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: var(--space-sm);
+  }
+
+  .db-headline {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--text-lede);
+    line-height: var(--leading-lede);
+    color: var(--color-ink);
+    margin-bottom: var(--space-md);
+  }
+
+  .db-rsec {
+    border-top: var(--border-hairline);
+    padding-top: var(--space-sm);
+    margin-top: var(--space-sm);
+  }
+
+  .db-rsec h4 {
+    font-family: var(--font-mono);
+    font-size: var(--text-label);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.5rem;
+  }
+
+  .db-rsec p {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+  }
+
+  .db-matches {
+    list-style: none;
+    display: grid;
+    gap: 0.625rem;
+  }
+
+  .db-matches a {
+    font-weight: var(--weight-body-medium);
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+
+  .db-matches a:hover { color: var(--color-steel); }
+
+  .db-matches span {
+    display: block;
+    font-size: var(--text-caption);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+  }
+
+  .db-gen {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: var(--text-body-sm);
+    color: var(--color-body-strong);
+    margin-bottom: 0.5rem;
+  }
+
+  .db-gen-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-steel);
+    animation: db-breathe 1.8s ease-in-out infinite;
+  }
+
+  @keyframes db-breathe {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .db-gen-dot { animation: none; }
+  }
+
+  /* ---- Screening ---- */
+  .db-screenings {
+    list-style: none;
+    display: grid;
+    gap: 0.375rem;
+    margin-bottom: var(--space-sm);
+    font-size: var(--text-body-sm);
+    color: var(--color-body-strong);
+  }
+
+  .db-scr-status {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-steel);
+    margin-right: 0.5rem;
+  }
+
+  .db-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+    max-width: 32rem;
+    margin-bottom: var(--space-sm);
+  }
+
+  @media (max-width: 640px) {
+    .db-fields { grid-template-columns: 1fr; }
+  }
+
+  .db-field label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.375rem;
+  }
+
+  .db-field input {
+    width: 100%;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-swatch);
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    color: var(--color-ink);
+  }
+
+  .db-field input:focus { border-color: var(--color-steel); }
+
+  .db-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    align-items: center;
+  }
+
+  .db-after {
+    margin-top: var(--space-md);
+    border-top: var(--border-hairline);
+    padding-top: var(--space-sm);
+  }
+
+  .db-primary {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    background: var(--color-ink);
+    color: var(--color-paper);
+    border: 1px solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    padding: 0.875rem 1.75rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+
+  .db-primary:hover { background: var(--color-steel); border-color: var(--color-steel); }
+
+  .db-ghost {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    padding: 0.375rem 0;
+  }
+
+  .db-ghost:hover { color: var(--color-ink); }
+
+  .db-signout { text-align: right; }
+
+  .db-error {
+    font-size: var(--text-body-sm);
+    color: var(--color-negative);
+  }
+</style>

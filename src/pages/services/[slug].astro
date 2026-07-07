@@ -39,9 +39,8 @@ const isCategory = kind === 'category';
 const detail = item?.detail;
 const tier = detail ? evidenceTiers[detail.benefit.tier] : undefined;
 
-// The free diagnostic ships as its own page; "start with the free diagnostic"
-// points there. It is the lead-capture flow, not a catalog service.
-const diagnosticHref = '/diagnostic/';
+// Everyone starts in the same place: the walk (the intake stage of THE FLOW).
+const diagnosticHref = '/walk/';
 
 const catCount = category.items.length;
 const pageTitle = isCategory
@@ -103,7 +102,7 @@ const pageDescription = isCategory
 
         <Section label="Next step">
           <div class="cta-row">
-            <Button href={diagnosticHref}>Start with the free diagnostic</Button>
+            <Button href={diagnosticHref}>Begin the walk</Button>
             <Button href="/services/" variant="ghost">All services</Button>
           </div>
         </Section>
@@ -168,7 +167,7 @@ const pageDescription = isCategory
 
         <Section label="Next step">
           <div class="cta-row">
-            <Button href={diagnosticHref}>Start with the free diagnostic</Button>
+            <Button href={diagnosticHref}>Begin the walk</Button>
             <Button href="/services/" variant="ghost">See the full catalog</Button>
           </div>
         </Section>

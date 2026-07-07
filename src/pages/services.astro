@@ -3,73 +3,59 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import PageIntro from '../components/PageIntro.astro';
 import Section from '../components/Section.astro';
 import Button from '../components/Button.astro';
-import { services } from '../data/services';
+import { flow } from '../data/flow';
+import { walk } from '../data/walk';
 import { roadmap, roadmapCount } from '../data/roadmap';
-
-// The free diagnostic is the lead-capture flow at /diagnostic/ — the way in,
-// not a service — so it is deliberately absent from the catalog below. This
-// one constant points the catalog's "start with the free diagnostic" CTAs
-// at it.
-const diagnosticHref = '/diagnostic/';
 
 const pageTitle = 'Services — Solborne & Co.';
 const pageDescription =
-  'Five AI services, from an opportunity audit to a full readiness assessment. Fixed scope, flat fees, human-checked work — the same care at every price.';
+  `One flow, start to finish: ${walk.name.toLowerCase()}, a researched preliminary read, an AI screening call, human review, expert verification, the final audit — and implementation under a retainer if you want it built. The catalog below is what gets delivered inside it.`;
 ---
 
 <BaseLayout title={pageTitle} description={pageDescription}>
-  <PageIntro eyebrow="Services" title="A small, sharp set of services, done well.">
+  <PageIntro eyebrow="Services" title="Not a menu. One flow.">
     <p>
-      We productized the work: fixed scope, a flat price you see before we start, and every
-      paid deliverable checked by a human before it reaches you.
-    </p>
-    <p>
-      Priced so that a five-person firm and a five-hundred-person firm can both walk
-      through the same door.
+      Everything here runs in one order, for everyone: you walk, we read, we
+      call, humans check, experts verify — and only then does anything get
+      built. Some of it is free. All of it is checked by a person before it
+      reaches you.
     </p>
   </PageIntro>
 
-  <Section label="The catalog" title="Five services, ready today." id="live">
+  <Section label="The flow" title="How it flows, start to finish." id="flow">
     <!-- ============================================================
          PRICING GATE (deliberate): no price figures on the site.
-         Where a price used to render, each row now carries a CTA
-         toward the free diagnostic — see `diagnosticHref` above.
+         Stages carry Free/Paid tags only; WHERE payment begins in
+         the middle of the flow is an open founder decision, so the
+         middle stages carry no tag at all.
          ============================================================ -->
-    <div class="catalog">
+    <ol class="flow" role="list">
       {
-        services.map((service) => (
-          <article class:list={['row', { flagship: service.flagship }]}>
-            <div class="row-name">
-              <h3>{service.name}</h3>
-              <p class="price-note">{service.priceNote}</p>
+        flow.map((stage, i) => (
+          <li class="fstage">
+            <span class="fstage-num" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
+            <div class="fstage-body">
+              <h3 class="fstage-name">
+                {stage.href ? <a href={stage.href}>{stage.name}</a> : stage.name}
+                {stage.tag && <span class="fstage-tag">{stage.tag}</span>}
+              </h3>
+              <p class="fstage-blurb">{stage.blurb}</p>
             </div>
-            <div class="row-body">
-              <p class="summary">{service.summary}</p>
-              <ul class="deliverables" role="list">
-                {service.deliverables.map((item) => (
-                  <li>{item}</li>
-                ))}
-              </ul>
-            </div>
-            <p class="row-cta">
-              <a href={diagnosticHref}>
-                Start with the free diagnostic
-                <span class="visually-hidden"> — {service.name}</span>
-                <span aria-hidden="true"> &rarr;</span>
-              </a>
-            </p>
-          </article>
+          </li>
         ))
       }
+    </ol>
+    <div class="cta-row">
+      <Button href={walk.path}>Begin the walk</Button>
     </div>
   </Section>
 
   <Section label="The full catalog" title="What are you trying to do?" id="catalog">
     <p class="catalog-intro">
-      The five services above are our staffed, flagship offering. Below is the
-      full catalog — {roadmapCount} workflows across ten categories, each built
-      and ready to run today, delivered by AI with a human expert review pass
-      on every engagement.
+      The flow above is how we work with you. This catalog is what gets
+      delivered inside it — {roadmapCount} workflows across ten categories,
+      each built and ready to run today, delivered by AI with a human expert
+      review pass on every engagement.
     </p>
     <p class="catalog-intro catalog-intro--minor">
       What we don’t claim: a completed paying engagement behind these specific
@@ -78,8 +64,9 @@ const pageDescription =
     </p>
 
     <p class="start-nudge">
-      Not sure where to start? <a href={diagnosticHref}>Take the free diagnostic</a>
-      — a few plain questions that point you at the workflows worth your attention.
+      Not sure where to start? Everyone starts in the same place —
+      <a href={walk.path}>begin the walk</a>, and your read will point at the
+      workflows worth your attention.
     </p>
 
     <!-- Filter bar: progressive enhancement only. Hidden until the script
@@ -200,7 +187,7 @@ const pageDescription =
     <p class="browse-empty" data-empty hidden>
       Nothing matches that.
       <button type="button" class="browse-reset" data-reset>Show everything</button>
-      — or <a href={diagnosticHref}>take the free diagnostic</a> and let it point you.
+      — or <a href={walk.path}>begin the walk</a> and let your read point you.
     </p>
   </Section>
 
@@ -209,14 +196,13 @@ const pageDescription =
       <p>
         Every engagement runs on a fixed scope and a flat fee, both stated in writing
         before any work begins. The fee we quote is the fee you pay — no meter running, no
-        surprise line items at the end. And everyone starts in the same place: the free
-        diagnostic.
+        surprise line items at the end. And everyone starts in the same place: the walk.
       </p>
       <p>
         Every paid deliverable is checked by a human before it reaches you — AI does a
         share of the work, but nothing you pay for leaves this firm on a model's word
-        alone. The one exception is the diagnostic, which is automated — that is what
-        makes it free.
+        alone. The exceptions are the walk and the preliminary read, which are automated —
+        that is what makes them free.
       </p>
       <p>
         Every recommendation carries a confidence level — a number, not a shrug. Where we
@@ -236,7 +222,7 @@ const pageDescription =
 
   <Section label="Next step">
     <nav class="cta-row" aria-label="Get started">
-      <Button href="/diagnostic/">Start with the free diagnostic</Button>
+      <Button href={walk.path}>Begin the walk</Button>
       <Button href="/contact/" variant="ghost">Ask a question</Button>
     </nav>
   </Section>
@@ -402,113 +388,83 @@ const pageDescription =
 </BaseLayout>
 
 <style>
-  /* ---- The catalog: verdict-table-style stack ---- */
-  .catalog {
+  /* ---- The flow: one numbered journey, not a menu ---- */
+  .flow {
+    list-style: none;
+    max-width: 50rem;
     display: grid;
     gap: 0;
-    border: var(--border-hairline);
-    border-radius: var(--radius-card);
-    overflow: hidden;
-    background: var(--color-panel);
     margin-top: var(--space-xs);
+    margin-bottom: var(--space-md);
   }
 
-  .row {
+  .fstage {
     display: grid;
-    grid-template-columns: 220px 1fr 150px;
+    grid-template-columns: auto 1fr;
     gap: var(--space-md);
-    padding: 1.375rem var(--space-md);
+    padding: 1.125rem 0;
     border-top: var(--border-hairline);
-    align-items: start;
   }
 
-  .row:first-child {
+  .fstage:first-child {
     border-top: none;
   }
 
-  /* The single permitted amber surface — the flagship engagement. */
-  .row.flagship {
-    background: var(--color-bearing-wash);
+  .fstage-num {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono-medium);
+    font-size: var(--text-caption);
+    color: var(--color-steel);
+    padding-top: 0.3125rem;
   }
 
-  .row-name h3 {
+  .fstage-name {
     font-size: var(--text-h3);
     line-height: var(--leading-heading);
+    color: var(--color-ink);
+    margin-bottom: 0.375rem;
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    flex-wrap: wrap;
   }
 
-  .price-note {
+  .fstage-name a {
+    color: var(--color-ink);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .fstage-name a:hover {
+    color: var(--color-steel);
+    border-bottom-color: var(--color-steel);
+  }
+
+  .fstage-tag {
     font-family: var(--font-mono);
     font-size: var(--text-tag);
     font-weight: var(--weight-mono);
     letter-spacing: var(--tracking-tag);
     text-transform: uppercase;
-    color: var(--color-stone);
-    margin-top: 0.3125rem;
-  }
-
-  .summary {
-    font-size: var(--text-body-sm);
-    line-height: 1.6;
-    color: var(--color-body);
-  }
-
-  .deliverables {
-    list-style: none;
-    margin-top: 0.875rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .deliverables li {
-    position: relative;
-    padding-left: 1.5rem;
-    font-size: 0.90625rem;
-    line-height: var(--leading-tight);
-    color: var(--color-body-strong);
-  }
-
-  .deliverables li::before {
-    content: '+' / '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    font-family: var(--font-mono);
-    font-size: 0.8125rem;
-    color: var(--color-positive);
-  }
-
-  /* Where the price used to sit: the diagnostic CTA, mono + Steel. */
-  .row-cta {
-    text-align: right;
-    padding-top: 0.1875rem;
-  }
-
-  .row-cta a {
-    font-family: var(--font-mono);
-    font-weight: var(--weight-mono-medium);
-    font-size: var(--text-tag);
-    letter-spacing: var(--tracking-tag);
-    text-transform: uppercase;
     color: var(--color-steel);
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: border-color var(--duration-fast) var(--ease-out);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-pill);
+    padding: 0.125rem 0.625rem;
   }
 
-  .row-cta a:hover {
-    border-bottom-color: var(--color-steel);
+  .fstage-blurb {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body);
+    max-width: 62ch;
   }
 
-  @media (max-width: 760px) {
-    .row {
+  @media (max-width: 640px) {
+    .fstage {
       grid-template-columns: 1fr;
-      gap: var(--space-xs);
-    }
-
-    .row-cta {
-      text-align: left;
-      padding-top: 0;
+      gap: 0.375rem;
     }
   }
 

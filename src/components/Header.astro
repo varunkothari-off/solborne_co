@@ -3,6 +3,7 @@ import Mark from './Mark.astro';
 import Wordmark from './Wordmark.astro';
 import { roadmap } from '../data/roadmap';
 import { site } from '../data/site';
+import { walk } from '../data/walk';
 
 /**
  * Services mega-menu: every category (linking to its own page at
@@ -125,10 +126,10 @@ const onServices = currentPath.startsWith('/services/');
         <li>
           <a
             class="nav-cta"
-            href="/diagnostic/"
-            aria-current={ariaCurrent('/diagnostic/')}
+            href={walk.path}
+            aria-current={ariaCurrent(walk.path)}
           >
-            Free Diagnostic
+            {walk.cta}
           </a>
         </li>
       </ul>
@@ -371,7 +372,7 @@ const onServices = currentPath.startsWith('/services/');
     color: var(--color-ink) !important;
   }
 
-  /* ---- Primary nav CTA: the free diagnostic (the lead magnet) ---- */
+  /* ---- Primary nav CTA: the walk (the way in) ---- */
   .site-nav .nav-cta {
     color: var(--color-paper);
     background: var(--color-ink);
@@ -463,7 +464,7 @@ const onServices = currentPath.startsWith('/services/');
        nested list — no hover, no absolute positioning. To keep the menu
        scannable it collapses to the ten CATEGORY links only (each category
        page lists its workflows), and the whole Services group is ordered
-       BELOW the primary links and the Free Diagnostic CTA so they aren't
+       BELOW the primary links and the walk CTA so they aren't
        buried under the catalog. */
     .site-nav > ul > li.has-dropdown {
       order: 9;

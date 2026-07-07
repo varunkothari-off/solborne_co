@@ -3,6 +3,7 @@ import Mark from './Mark.astro';
 import Wordmark from './Wordmark.astro';
 import { site } from '../data/site';
 import { roadmap } from '../data/roadmap';
+import { walk } from '../data/walk';
 
 const year = new Date().getFullYear();
 
@@ -15,8 +16,9 @@ const companyLinks = [
 ];
 
 const startLinks = [
-  { href: '/diagnostic/', label: 'Free Diagnostic' },
-  { href: '/services/', label: 'All Services' },
+  { href: walk.path, label: walk.cta },
+  { href: '/services/', label: 'How It Flows' },
+  { href: '/dashboard/', label: 'Members' },
 ];
 ---
 

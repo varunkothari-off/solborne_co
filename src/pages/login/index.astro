@@ -1,0 +1,270 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageIntro from '../../components/PageIntro.astro';
+import Section from '../../components/Section.astro';
+
+/**
+ * Membership sign-in. Free, and the gate between the walk and the members
+ * dashboard (where the report is built and shown).
+ *
+ * Providers are driven by PUBLIC_AUTH_PROVIDERS so buttons appear as the
+ * founder configures each one in Supabase (see human-steps-checklist step 4):
+ *   email          — one-time code, works out of the box
+ *   google         — personal + work Google
+ *   linkedin_oidc  — LinkedIn
+ *   facebook       — Meta (covers Facebook/Instagram identities)
+ * WhatsApp/Instagram-direct aren't standard OAuth providers — flagged in the
+ * checklist; phone-OTP can be added via an SMS provider later.
+ */
+const pageTitle = 'Become a member — Solborne & Co.';
+const pageDescription =
+  'Free membership: your walk answers, your preliminary report as it is built, and your screening call — in one place.';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <PageIntro eyebrow="Members" title="One login, and it's yours.">
+    <p>
+      Membership is free. It keeps your answers, builds your preliminary read,
+      and holds your place in the flow — the screening call, the human review,
+      the experts.
+    </p>
+  </PageIntro>
+
+  <Section label="Sign in">
+    <div class="lg" data-login>
+      <div class="lg-card">
+        <div class="lg-providers" data-providers></div>
+        <div class="lg-sep" data-sep hidden><span>or with email</span></div>
+        <div class="lg-email">
+          <div class="lg-field">
+            <label for="lg-email">Email</label>
+            <input id="lg-email" type="email" autocomplete="email" />
+          </div>
+          <div class="lg-field" data-otp hidden>
+            <label for="lg-otp">Six-digit code</label>
+            <input id="lg-otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+          </div>
+          <button type="button" class="lg-primary" data-send>Email me a code</button>
+          <button type="button" class="lg-primary" data-verify hidden>Verify &rarr;</button>
+        </div>
+        <p class="lg-error" data-error hidden></p>
+      </div>
+      <p class="lg-note">
+        Work email or personal — whichever you'll actually check. No password
+        to invent, no list, no drip sequence.
+      </p>
+    </div>
+  </Section>
+
+  <script>
+    import { createClient } from '@supabase/supabase-js';
+
+    const root = document.querySelector<HTMLElement>('[data-login]');
+    if (root) {
+      const supabase = createClient(
+        import.meta.env.PUBLIC_SUPABASE_URL,
+        import.meta.env.PUBLIC_SUPABASE_ANON_KEY
+      );
+
+      // Carry the walk id through the OAuth redirect via localStorage.
+      const params = new URLSearchParams(location.search);
+      const walkId = params.get('walk');
+      if (walkId) localStorage.setItem('solborne-walk-id', walkId);
+
+      const errorEl = root.querySelector<HTMLElement>('[data-error]')!;
+      const fail = (msg: string) => { errorEl.textContent = msg; errorEl.hidden = false; };
+
+      // Already signed in? Straight to the dashboard.
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) location.href = '/dashboard/';
+      });
+
+      // ---- Social providers (env-driven) ----
+      const configured = String(import.meta.env.PUBLIC_AUTH_PROVIDERS || 'email')
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const socialLabels: Record<string, string> = {
+        google: 'Continue with Google',
+        linkedin_oidc: 'Continue with LinkedIn',
+        facebook: 'Continue with Meta',
+      };
+      const socials = configured.filter((p) => p in socialLabels);
+      const providersBox = root.querySelector<HTMLElement>('[data-providers]')!;
+      if (socials.length > 0) {
+        root.querySelector<HTMLElement>('[data-sep]')!.hidden = false;
+        providersBox.innerHTML = socials
+          .map((p) => `<button type="button" class="lg-social" data-provider="${p}">${socialLabels[p]}</button>`)
+          .join('');
+        providersBox.querySelectorAll<HTMLButtonElement>('[data-provider]').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const { error } = await supabase.auth.signInWithOAuth({
+              provider: btn.dataset.provider as never,
+              options: { redirectTo: `${location.origin}/dashboard/` },
+            });
+            if (error) fail(`Could not start that sign-in: ${error.message}`);
+          });
+        });
+      }
+
+      // ---- Email OTP ----
+      const emailInput = root.querySelector<HTMLInputElement>('#lg-email')!;
+      const otpInput = root.querySelector<HTMLInputElement>('#lg-otp')!;
+      const sendBtn = root.querySelector<HTMLButtonElement>('[data-send]')!;
+      const verifyBtn = root.querySelector<HTMLButtonElement>('[data-verify]')!;
+      let email = '';
+
+      sendBtn.addEventListener('click', async () => {
+        errorEl.hidden = true;
+        email = emailInput.value.trim();
+        if (!email || !emailInput.checkValidity()) { fail('Enter a working email.'); return; }
+        const { error } = await supabase.auth.signInWithOtp({
+          email,
+          options: { shouldCreateUser: true },
+        });
+        if (error) { fail(`Could not send the code: ${error.message}`); return; }
+        root.querySelector<HTMLElement>('[data-otp]')!.hidden = false;
+        verifyBtn.hidden = false;
+        sendBtn.textContent = 'Resend the code';
+        otpInput.focus();
+      });
+
+      verifyBtn.addEventListener('click', async () => {
+        errorEl.hidden = true;
+        const token = otpInput.value.trim();
+        if (token.length < 6) { fail('Enter the six-digit code from the email.'); return; }
+        const { data, error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
+        if (error || !data.session) {
+          fail(`Sign-in failed: ${error?.message ?? 'no session returned'}`);
+          return;
+        }
+        location.href = '/dashboard/';
+      });
+    }
+  </script>
+</BaseLayout>
+
+<style is:global>
+  /* Login island injects provider buttons; global, .lg- namespaced. */
+  .lg {
+    max-width: 26rem;
+    display: grid;
+    gap: var(--space-sm);
+  }
+
+  .lg-card {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: clamp(1.5rem, 1rem + 3vw, 2.25rem);
+  }
+
+  .lg-providers {
+    display: grid;
+    gap: 0.625rem;
+  }
+
+  .lg-social {
+    width: 100%;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-pill);
+    padding: 0.75rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-ink);
+    cursor: pointer;
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .lg-social:hover {
+    border-color: var(--color-ink);
+  }
+
+  .lg-sep {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0;
+    color: var(--color-stone);
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+  }
+
+  .lg-sep::before,
+  .lg-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-line);
+  }
+
+  .lg-email {
+    display: grid;
+    gap: var(--space-sm);
+  }
+
+  .lg-field label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.375rem;
+  }
+
+  .lg-field input {
+    width: 100%;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-swatch);
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    color: var(--color-ink);
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .lg-field input:focus {
+    border-color: var(--color-steel);
+  }
+
+  .lg-primary {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    background: var(--color-ink);
+    color: var(--color-paper);
+    border: 1px solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    padding: 0.875rem 1.75rem;
+    cursor: pointer;
+    justify-self: start;
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+
+  .lg-primary:hover {
+    background: var(--color-steel);
+    border-color: var(--color-steel);
+  }
+
+  .lg-error {
+    margin-top: var(--space-sm);
+    font-size: var(--text-body-sm);
+    color: var(--color-negative);
+  }
+
+  .lg-note {
+    font-size: var(--text-caption);
+    color: var(--color-body);
+  }
+</style>

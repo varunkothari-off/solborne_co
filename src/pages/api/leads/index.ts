@@ -1,5 +1,5 @@
 /**
- * POST /api/leads — free diagnostic submission (spec: no auth).
+ * POST /api/leads — LEGACY (the old rule-based diagnostic; superseded by /api/walks).
  * Body: the payload assembled by the diagnostic page (lead + answers).
  * Returns the lead id, which doubles as the capability token for
  * GET /api/leads/:id/recommendation and the /book/ flow.

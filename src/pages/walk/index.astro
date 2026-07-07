@@ -1,0 +1,904 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageIntro from '../../components/PageIntro.astro';
+import Section from '../../components/Section.astro';
+import { walk, walkParts, partOneQuestions, partThreeFields } from '../../data/walk';
+import { voicePreviewMode } from '../../lib/stt';
+import { llmProvider } from '../../lib/llm';
+
+/**
+ * The Walk — voice-first intake.
+ * Part 1: five fixed questions, spoken. Part 2: generated "right questions",
+ * spoken. Part 3: typed facts for research. Sticky progress + running timer
+ * (starts at the first click, freezes at submit — computed server-side).
+ * Rendered per-request so preview-mode (no STT / no LLM key yet) is honest.
+ */
+export const prerender = false;
+const previewMode = voicePreviewMode() || llmProvider().isStub;
+
+const pageTitle = `${walk.name} — Solborne & Co.`;
+const pageDescription =
+  `${walk.name}: say it the way it actually is — out loud. We listen, work out ` +
+  'the questions worth asking you, research you properly, and hand you an honest ' +
+  'preliminary read on where AI fits your work.';
+---
+
+<BaseLayout title={pageTitle} description={pageDescription}>
+  <PageIntro eyebrow="Start here" title="Where does it actually hurt?">
+    <p>
+      No forms, no menus — you talk, we listen. {partOneQuestions.length} plain
+      questions to start, then the questions your answers earn, then a few typed
+      facts so we can research you properly. Most people should be done inside
+      {walk.targetMinutes} minutes; take longer if you have more to say.
+    </p>
+  </PageIntro>
+
+  <Section label={walk.name}>
+    <div class="wk" data-walk>
+      {
+        previewMode && (
+          <div class="wk-preview" role="note">
+            <p class="wk-preview-label">Preview mode</p>
+            <p>
+              The flow is fully working, but voice transcription and report
+              generation aren't connected to live services yet — recordings get
+              a placeholder transcript. Everything switches on automatically
+              when the keys are added.
+            </p>
+          </div>
+        )
+      }
+      <noscript>
+        <p class="wk-note">
+          The walk needs JavaScript and a microphone. You can also
+          <a href="/contact/">write to us directly</a> — a person reads it.
+        </p>
+      </noscript>
+
+      <!-- Sticky progress: parts, question count, elapsed timer -->
+      <div class="wk-progress" data-progress hidden>
+        <div class="wk-parts" data-parts></div>
+        <div class="wk-progress-meta">
+          <span data-qcount></span>
+          <span class="wk-timer" data-timer aria-label="Time elapsed">0:00</span>
+        </div>
+        <div class="wk-bar"><span data-bar style="width:0%"></span></div>
+      </div>
+
+      <div class="wk-card" data-stage></div>
+      <p class="wk-error" data-error hidden></p>
+    </div>
+  </Section>
+
+  <script
+    type="application/json"
+    id="wk-config"
+    set:html={JSON.stringify({ walk, parts: walkParts, partOne: partOneQuestions, fields: partThreeFields })}
+  ></script>
+
+  <script>
+    type Field = {
+      key: string; label: string; required: boolean;
+      type: string; placeholder?: string;
+    };
+    type Config = {
+      walk: { name: string; cta: string; path: string; targetMinutes: number };
+      parts: { key: string; label: string; blurb: string }[];
+      partOne: string[];
+      fields: Field[];
+    };
+
+    const root = document.querySelector<HTMLElement>('[data-walk]');
+    const cfgEl = document.getElementById('wk-config');
+    if (root && cfgEl) {
+      const cfg: Config = JSON.parse(cfgEl.textContent || '{}');
+      const stage = root.querySelector<HTMLElement>('[data-stage]')!;
+      const errorEl = root.querySelector<HTMLElement>('[data-error]')!;
+      const progressEl = root.querySelector<HTMLElement>('[data-progress]')!;
+
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const fail = (msg: string) => { errorEl.textContent = msg; errorEl.hidden = false; };
+      const clearError = () => { errorEl.hidden = true; };
+
+      const STORE_KEY = 'solborne-walk-id';
+
+      const state = {
+        walkId: null as string | null,
+        startedAtMs: null as number | null,
+        part: 'intro' as 'intro' | 'one' | 'two' | 'facts' | 'done',
+        qIndex: 0,
+        partTwo: [] as string[],
+        answered: { one: new Set<number>(), two: new Set<number>() },
+        transcripts: {} as Record<string, string>,
+        lastResult: null as Record<string, unknown> | null,
+      };
+
+      // ---- Timer ----
+      let timerHandle: ReturnType<typeof setInterval> | null = null;
+      function fmt(totalSeconds: number): string {
+        const m = Math.floor(totalSeconds / 60);
+        const s = totalSeconds % 60;
+        return `${m}:${String(s).padStart(2, '0')}`;
+      }
+      function startTimer() {
+        const el = root!.querySelector<HTMLElement>('[data-timer]')!;
+        if (timerHandle) clearInterval(timerHandle);
+        timerHandle = setInterval(() => {
+          if (!state.startedAtMs) return;
+          el.textContent = fmt(Math.max(0, Math.floor((Date.now() - state.startedAtMs) / 1000)));
+        }, 1000);
+      }
+      function freezeTimer(seconds: number) {
+        if (timerHandle) clearInterval(timerHandle);
+        root!.querySelector<HTMLElement>('[data-timer]')!.textContent = fmt(seconds);
+      }
+
+      // ---- Progress ----
+      function questionsInPart(part: 'one' | 'two'): number {
+        return part === 'one' ? cfg.partOne.length : state.partTwo.length;
+      }
+      function renderProgress() {
+        progressEl.hidden = state.part === 'intro';
+        if (progressEl.hidden) return;
+        const partsBox = progressEl.querySelector<HTMLElement>('[data-parts]')!;
+        const order = ['one', 'two', 'facts'];
+        const activeIdx =
+          state.part === 'done' ? 3 : order.indexOf(state.part);
+        partsBox.innerHTML = cfg.parts
+          .map((p, i) => {
+            const stateClass =
+              i < activeIdx ? ' is-done' : i === activeIdx ? ' is-active' : '';
+            return `<span class="wk-part${stateClass}"><span class="wk-part-num">${i + 1}</span>${esc(p.label)}</span>`;
+          })
+          .join('');
+        const qcount = progressEl.querySelector<HTMLElement>('[data-qcount]')!;
+        const bar = progressEl.querySelector<HTMLElement>('[data-bar]')!;
+        if (state.part === 'one' || state.part === 'two') {
+          const total = questionsInPart(state.part);
+          qcount.textContent = `Question ${Math.min(state.qIndex + 1, total)} of ${total}`;
+        } else if (state.part === 'facts') {
+          qcount.textContent = 'A few typed facts';
+        } else {
+          qcount.textContent = 'Done';
+        }
+        // Overall: part one 0-40%, two 40-80%, facts 80-95%, done 100%.
+        let pct = 0;
+        if (state.part === 'one') pct = (state.qIndex / Math.max(1, cfg.partOne.length)) * 40;
+        else if (state.part === 'two') pct = 40 + (state.qIndex / Math.max(1, state.partTwo.length)) * 40;
+        else if (state.part === 'facts') pct = 85;
+        else if (state.part === 'done') pct = 100;
+        bar.style.width = `${Math.round(pct)}%`;
+      }
+
+      // ---- Recorder ----
+      let mediaStream: MediaStream | null = null;
+      let recorder: MediaRecorder | null = null;
+      let chunks: Blob[] = [];
+      let recStartedAt = 0;
+      let recTickHandle: ReturnType<typeof setInterval> | null = null;
+
+      function pickMime(): string {
+        const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+        for (const c of candidates) {
+          if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c)) return c;
+        }
+        return '';
+      }
+
+      async function ensureMic(): Promise<MediaStream> {
+        if (mediaStream) return mediaStream;
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        return mediaStream;
+      }
+
+      function blobToBase64(blob: Blob): Promise<string> {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(reader.error);
+          reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      // ---- API ----
+      async function api(path: string, init?: RequestInit): Promise<any> {
+        const res = await fetch(path, init);
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error((data && data.error) || `request failed (${res.status})`);
+        return data;
+      }
+
+      // ---- Stages ----
+      function currentQuestion(): string {
+        return state.part === 'one' ? cfg.partOne[state.qIndex] : state.partTwo[state.qIndex];
+      }
+
+      function showIntro() {
+        state.part = 'intro';
+        renderProgress();
+        stage.innerHTML = `
+          <h3 class="wk-q">Ready when you are.</h3>
+          <p class="wk-copy">Three parts. In the first two you only speak — no typing.
+          The third is a short set of typed facts so we can research you properly.
+          A timer runs from the moment you begin; most people should finish inside
+          ${cfg.walk.targetMinutes} minutes.</p>
+          <p class="wk-copy wk-copy--quiet">You'll need a microphone. We record each answer,
+          transcribe it word for word, and show you the transcript as you go.</p>
+          <button type="button" class="wk-primary" data-begin>Begin the walk &rarr;</button>`;
+        stage.querySelector('[data-begin]')?.addEventListener('click', begin);
+      }
+
+      async function begin() {
+        clearError();
+        try {
+          // Mic permission FIRST — no point starting the timer without it.
+          await ensureMic();
+        } catch {
+          fail('We need microphone access for the walk — your browser blocked it. Allow the mic and try again, or write to us from the contact page.');
+          return;
+        }
+        try {
+          const created = await api('/api/walks', { method: 'POST' });
+          state.walkId = created.walk_id;
+          localStorage.setItem(STORE_KEY, String(state.walkId));
+          const walkState = await api(`/api/walks/${state.walkId}`);
+          state.startedAtMs = new Date(walkState.started_at).getTime();
+          startTimer();
+          state.part = 'one';
+          state.qIndex = 0;
+          showQuestion();
+        } catch (err) {
+          fail(err instanceof Error ? err.message : 'Could not start the walk.');
+        }
+      }
+
+      async function resume(walkId: string) {
+        try {
+          const w = await api(`/api/walks/${walkId}`);
+          if (w.status !== 'in_progress') {
+            // Already submitted — send them onwards to membership.
+            state.walkId = walkId;
+            state.part = 'done';
+            state.lastResult = null;
+            showDone(null);
+            return;
+          }
+          state.walkId = walkId;
+          state.startedAtMs = new Date(w.started_at).getTime();
+          state.partTwo = w.questions ?? [];
+          for (const a of w.answers ?? []) {
+            const section = a.section as 'one' | 'two';
+            state.answered[section]?.add(a.index);
+            state.transcripts[`${a.section}:${a.index}`] = a.transcript;
+          }
+          startTimer();
+          // Position: first unanswered of part one, else part two, else facts.
+          const nextOne = cfg.partOne.findIndex((_, i) => !state.answered.one.has(i));
+          if (nextOne !== -1) {
+            state.part = 'one'; state.qIndex = nextOne;
+          } else if (state.partTwo.length === 0) {
+            state.part = 'one'; // finished part one but questions not generated yet
+            await toPartTwo();
+            return;
+          } else {
+            const nextTwo = state.partTwo.findIndex((_, i) => !state.answered.two.has(i));
+            if (nextTwo !== -1) { state.part = 'two'; state.qIndex = nextTwo; }
+            else { state.part = 'facts'; showFacts(); return; }
+          }
+          showQuestion();
+        } catch {
+          localStorage.removeItem(STORE_KEY);
+          showIntro();
+        }
+      }
+
+      function showQuestion() {
+        renderProgress();
+        const q = currentQuestion();
+        const partBlurb = state.part === 'one' ? cfg.parts[0].blurb : cfg.parts[1].blurb;
+        stage.innerHTML = `
+          <p class="wk-eyebrow">${esc(state.part === 'one' ? cfg.parts[0].label : cfg.parts[1].label)}</p>
+          <h3 class="wk-q">${esc(q)}</h3>
+          <p class="wk-copy wk-copy--quiet">${esc(partBlurb)}</p>
+          <div class="wk-rec">
+            <button type="button" class="wk-mic" data-rec aria-label="Start recording">
+              <span class="wk-mic-dot" aria-hidden="true"></span>
+            </button>
+            <p class="wk-rec-state" data-rec-state>Tap to speak</p>
+          </div>
+          <div class="wk-transcript" data-transcript hidden>
+            <p class="wk-transcript-label">What we heard</p>
+            <p class="wk-transcript-text" data-transcript-text></p>
+            <div class="wk-row">
+              <button type="button" class="wk-primary" data-accept>Sounds right &rarr;</button>
+              <button type="button" class="wk-quiet" data-again>Say it again</button>
+            </div>
+          </div>`;
+        wireRecorder();
+      }
+
+      function wireRecorder() {
+        const btn = stage.querySelector<HTMLButtonElement>('[data-rec]')!;
+        const recState = stage.querySelector<HTMLElement>('[data-rec-state]')!;
+        const transcriptBox = stage.querySelector<HTMLElement>('[data-transcript]')!;
+        const transcriptText = stage.querySelector<HTMLElement>('[data-transcript-text]')!;
+
+        let recording = false;
+
+        btn.addEventListener('click', async () => {
+          clearError();
+          if (!recording) {
+            try {
+              const stream = await ensureMic();
+              chunks = [];
+              const mime = pickMime();
+              recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+              recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+              recorder.onstop = onRecorded;
+              recorder.start();
+              recording = true;
+              recStartedAt = Date.now();
+              btn.classList.add('is-recording');
+              btn.setAttribute('aria-label', 'Stop recording');
+              recTickHandle = setInterval(() => {
+                recState.textContent = `Recording… ${fmt(Math.floor((Date.now() - recStartedAt) / 1000))} — tap to stop`;
+              }, 500);
+              recState.textContent = 'Recording… tap to stop';
+            } catch {
+              fail('Could not start the microphone. Check the browser permission and try again.');
+            }
+          } else {
+            recording = false;
+            if (recTickHandle) clearInterval(recTickHandle);
+            recorder?.stop();
+            btn.classList.remove('is-recording');
+            btn.setAttribute('aria-label', 'Start recording');
+          }
+        });
+
+        async function onRecorded() {
+          const blob = new Blob(chunks, { type: recorder?.mimeType || 'audio/webm' });
+          if (Date.now() - recStartedAt < 1200 || blob.size < 1500) {
+            recState.textContent = 'That was very short — tap and take your time.';
+            return;
+          }
+          recState.textContent = 'Transcribing…';
+          try {
+            const audioBase64 = await blobToBase64(blob);
+            const saved = await api(`/api/walks/${state.walkId}/answers`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                section: state.part,
+                index: state.qIndex,
+                question: currentQuestion(),
+                audio_base64: audioBase64,
+                mime: blob.type,
+              }),
+            });
+            state.transcripts[`${state.part}:${state.qIndex}`] = saved.transcript;
+            state.answered[state.part as 'one' | 'two'].add(state.qIndex);
+            transcriptText.textContent = saved.transcript;
+            transcriptBox.hidden = false;
+            recState.textContent = 'Not quite right? Record over it.';
+            transcriptBox.querySelector('[data-accept]')?.addEventListener('click', advance, { once: true });
+            transcriptBox.querySelector('[data-again]')?.addEventListener('click', () => {
+              transcriptBox.hidden = true;
+              recState.textContent = 'Tap to speak';
+            });
+          } catch (err) {
+            recState.textContent = 'Tap to speak';
+            fail(err instanceof Error ? err.message : 'Could not save that answer — try again.');
+          }
+        }
+      }
+
+      async function advance() {
+        clearError();
+        const total = questionsInPart(state.part as 'one' | 'two');
+        if (state.qIndex + 1 < total) {
+          state.qIndex += 1;
+          showQuestion();
+          return;
+        }
+        if (state.part === 'one') {
+          await toPartTwo();
+        } else {
+          state.part = 'facts';
+          state.qIndex = 0;
+          showFacts();
+        }
+      }
+
+      async function toPartTwo() {
+        renderProgress();
+        stage.innerHTML = `
+          <p class="wk-eyebrow">${esc(cfg.parts[1].label)}</p>
+          <h3 class="wk-q">Working out the questions worth asking you…</h3>
+          <p class="wk-copy wk-copy--quiet">Everything you just said is being read. The next
+          questions exist because of your answers — there may be three, there may be nine.</p>
+          <p class="wk-gen" data-gen>Listening back…</p>`;
+        const gen = stage.querySelector<HTMLElement>('[data-gen]')!;
+        const t0 = Date.now();
+        const tick = setInterval(() => {
+          gen.textContent = `Listening back… ${fmt(Math.floor((Date.now() - t0) / 1000))}`;
+        }, 1000);
+        try {
+          const data = await api(`/api/walks/${state.walkId}/questions`, { method: 'POST' });
+          state.partTwo = data.questions ?? [];
+          clearInterval(tick);
+          if (state.partTwo.length === 0) throw new Error('no questions came back');
+          state.part = 'two';
+          state.qIndex = state.partTwo.findIndex((_, i) => !state.answered.two.has(i));
+          if (state.qIndex === -1) { state.part = 'facts'; showFacts(); return; }
+          showQuestion();
+        } catch (err) {
+          clearInterval(tick);
+          fail(err instanceof Error ? err.message : 'Could not build your questions — try again.');
+          stage.innerHTML += `<button type="button" class="wk-primary" data-retry>Try again</button>`;
+          stage.querySelector('[data-retry]')?.addEventListener('click', toPartTwo, { once: true });
+        }
+      }
+
+      function showFacts() {
+        renderProgress();
+        const inputs = cfg.fields
+          .map((f) => {
+            const req = f.required ? ' required' : '';
+            const optional = f.required ? '' : ' <span class="wk-optional">(optional)</span>';
+            const control =
+              f.type === 'textarea'
+                ? `<textarea id="wk-${f.key}" rows="2"${req}></textarea>`
+                : `<input id="wk-${f.key}" type="${f.type}"${req} ${f.placeholder ? `placeholder="${esc(f.placeholder)}"` : ''}>`;
+            return `<div class="wk-field"><label for="wk-${f.key}">${esc(f.label)}${optional}</label>${control}</div>`;
+          })
+          .join('');
+        stage.innerHTML = `
+          <p class="wk-eyebrow">${esc(cfg.parts[2].label)}</p>
+          <h3 class="wk-q">Now the facts — so we can research you properly.</h3>
+          <p class="wk-copy wk-copy--quiet">We use these to look you up the way a careful
+          analyst would: your site, your market, your competition, your customers. Skip
+          anything you like — the more you give, the sharper the read. Only your name and
+          email are required.</p>
+          <div class="wk-fields">${inputs}</div>
+          <button type="button" class="wk-primary" data-finish>Finish the walk &rarr;</button>`;
+        stage.querySelector('[data-finish]')?.addEventListener('click', submitFacts);
+      }
+
+      async function submitFacts() {
+        clearError();
+        const contact: Record<string, string> = {};
+        for (const f of cfg.fields) {
+          const el = stage.querySelector<HTMLInputElement | HTMLTextAreaElement>(`#wk-${f.key}`);
+          const value = el?.value.trim() ?? '';
+          if (value) contact[f.key] = value;
+          if (f.required && !value) {
+            fail(`${f.label} is required.`);
+            el?.focus();
+            return;
+          }
+        }
+        const emailEl = stage.querySelector<HTMLInputElement>('#wk-email');
+        if (emailEl && !emailEl.checkValidity()) {
+          fail('That email does not look right.');
+          emailEl.focus();
+          return;
+        }
+        const btn = stage.querySelector<HTMLButtonElement>('[data-finish]')!;
+        btn.disabled = true;
+        btn.textContent = 'Finishing…';
+        try {
+          const result = await api(`/api/walks/${state.walkId}/submit`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(contact),
+          });
+          state.part = 'done';
+          state.lastResult = result;
+          showDone(result);
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = 'Finish the walk →';
+          fail(err instanceof Error ? err.message : 'Could not submit — try again.');
+        }
+      }
+
+      function showDone(result: Record<string, unknown> | null) {
+        renderProgress();
+        const dur = result ? Number(result.duration_seconds) : null;
+        if (dur) freezeTimer(dur);
+        const avg = result ? (result.average_duration_seconds as number | null) : null;
+        const timeLine = dur
+          ? avg
+            ? `You took <strong>${fmt(dur)}</strong>. People usually take about <strong>${fmt(avg)}</strong>.`
+            : `You took <strong>${fmt(dur)}</strong>. You're among the first to walk — once enough people have, we'll show the typical time here.`
+          : 'This walk is already submitted.';
+        stage.innerHTML = `
+          <p class="wk-eyebrow">Done</p>
+          <h3 class="wk-q">That's the walk.</h3>
+          <p class="wk-copy">${timeLine}</p>
+          <p class="wk-copy">Your answers are in. Next: become a member — free — and watch
+          your preliminary read being built from what you said and what we find researching
+          you. Then, if it earns it, the screening call.</p>
+          <a class="wk-primary" href="/login/?walk=${esc(String(state.walkId))}">Become a member — free &rarr;</a>`;
+      }
+
+      // ---- Boot ----
+      if (typeof MediaRecorder === 'undefined') {
+        stage.innerHTML = `<h3 class="wk-q">Your browser can't record audio.</h3>
+          <p class="wk-copy">The walk is voice-first and needs microphone recording.
+          Try a current Chrome, Edge, Safari or Firefox — or
+          <a href="/contact/">write to us directly</a>.</p>`;
+      } else {
+        const stored = localStorage.getItem(STORE_KEY);
+        if (stored) resume(stored);
+        else showIntro();
+      }
+    }
+  </script>
+</BaseLayout>
+
+<style is:global>
+  /* The walk island renders via innerHTML, so this block is global;
+     everything is .wk- namespaced. */
+  .wk {
+    max-width: 46rem;
+    display: grid;
+    gap: var(--space-md);
+  }
+
+  .wk-preview {
+    background: var(--color-bearing-wash);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 1.125rem 1.375rem;
+  }
+
+  .wk-preview p {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-tight);
+    color: var(--color-body-strong);
+  }
+
+  .wk-preview-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.375rem;
+  }
+
+  /* ---- Sticky progress ---- */
+  .wk-progress {
+    position: sticky;
+    top: 4.5rem;
+    z-index: 10;
+    background: color-mix(in srgb, var(--color-paper) 92%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: 0.875rem 1.125rem;
+  }
+
+  .wk-parts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .wk-part {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+  }
+
+  .wk-part-num {
+    display: inline-grid;
+    place-items: center;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-stone);
+    font-size: 0.625rem;
+  }
+
+  .wk-part.is-active {
+    color: var(--color-ink);
+  }
+
+  .wk-part.is-active .wk-part-num {
+    border-color: var(--color-ink);
+  }
+
+  .wk-part.is-done {
+    color: var(--color-positive);
+  }
+
+  .wk-part.is-done .wk-part-num {
+    border-color: var(--color-positive);
+    background: var(--color-positive);
+    color: var(--color-paper);
+  }
+
+  .wk-progress-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.5rem;
+  }
+
+  .wk-timer {
+    color: var(--color-steel);
+    font-weight: var(--weight-mono-medium);
+  }
+
+  .wk-bar {
+    height: 3px;
+    background: var(--color-track);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .wk-bar span {
+    display: block;
+    height: 100%;
+    background: var(--color-steel);
+    transition: width var(--duration-base) var(--ease-out);
+  }
+
+  /* ---- Card / stage ---- */
+  .wk-card {
+    background: var(--color-panel);
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    padding: clamp(1.5rem, 1rem + 3vw, 2.5rem);
+  }
+
+  .wk-eyebrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: var(--space-sm);
+  }
+
+  .wk-q {
+    font-family: var(--font-display);
+    font-weight: var(--weight-display);
+    font-size: var(--text-h3);
+    line-height: var(--leading-heading);
+    color: var(--color-ink);
+    margin-bottom: var(--space-sm);
+  }
+
+  .wk-copy {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+    margin-bottom: var(--space-sm);
+  }
+
+  .wk-copy--quiet {
+    color: var(--color-body);
+  }
+
+  .wk-copy strong {
+    font-family: var(--font-mono);
+    font-weight: var(--weight-mono-medium);
+    color: var(--color-steel);
+  }
+
+  .wk-note {
+    font-size: var(--text-body-sm);
+    color: var(--color-body);
+  }
+
+  /* ---- Recorder ---- */
+  .wk-rec {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) 0;
+  }
+
+  .wk-mic {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    border: 2px solid var(--color-ink);
+    background: var(--color-paper);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: border-color var(--duration-fast) var(--ease-out),
+      background var(--duration-fast) var(--ease-out);
+  }
+
+  .wk-mic:hover {
+    border-color: var(--color-steel);
+  }
+
+  .wk-mic-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--color-ink);
+    transition: background var(--duration-fast) var(--ease-out),
+      border-radius var(--duration-fast) var(--ease-out);
+  }
+
+  .wk-mic.is-recording {
+    border-color: var(--color-negative);
+    animation: wk-pulse 1.6s ease-out infinite;
+  }
+
+  .wk-mic.is-recording .wk-mic-dot {
+    background: var(--color-negative);
+    border-radius: 4px;
+  }
+
+  @keyframes wk-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(154, 75, 57, 0.25); }
+    100% { box-shadow: 0 0 0 16px rgba(154, 75, 57, 0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wk-mic.is-recording { animation: none; }
+  }
+
+  .wk-rec-state {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    min-height: 1rem;
+  }
+
+  /* ---- Transcript ---- */
+  .wk-transcript {
+    border-top: var(--border-hairline);
+    padding-top: var(--space-md);
+  }
+
+  .wk-transcript-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.5rem;
+  }
+
+  .wk-transcript-text {
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-body);
+    color: var(--color-body-strong);
+    white-space: pre-wrap;
+    margin-bottom: var(--space-sm);
+  }
+
+  .wk-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    align-items: center;
+  }
+
+  /* ---- Facts form ---- */
+  .wk-fields {
+    display: grid;
+    gap: var(--space-sm);
+    max-width: 28rem;
+    margin-bottom: var(--space-md);
+  }
+
+  .wk-field label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    margin-bottom: 0.375rem;
+  }
+
+  .wk-optional {
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .wk-field input,
+  .wk-field textarea {
+    width: 100%;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-swatch);
+    padding: 0.75rem 1rem;
+    /* 16px minimum: anything smaller triggers iOS Safari's focus zoom. */
+    font-size: 1rem;
+    color: var(--color-ink);
+    transition: border-color var(--duration-fast) var(--ease-out);
+  }
+
+  .wk-field input:focus,
+  .wk-field textarea:focus {
+    border-color: var(--color-steel);
+  }
+
+  /* ---- Buttons ---- */
+  .wk-primary {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: var(--weight-mono-medium);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    background: var(--color-ink);
+    color: var(--color-paper);
+    border: 1px solid var(--color-ink);
+    border-radius: var(--radius-pill);
+    padding: 0.875rem 1.75rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background var(--duration-fast) var(--ease-out);
+  }
+
+  .wk-primary:hover:not(:disabled) {
+    background: var(--color-steel);
+    border-color: var(--color-steel);
+  }
+
+  .wk-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .wk-quiet {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
+    padding: 0.375rem 0;
+  }
+
+  .wk-quiet:hover {
+    color: var(--color-ink);
+  }
+
+  .wk-gen {
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-steel);
+  }
+
+  .wk-error {
+    font-size: var(--text-body-sm);
+    color: var(--color-negative);
+  }
+</style>
