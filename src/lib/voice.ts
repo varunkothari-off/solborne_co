@@ -13,6 +13,9 @@ import { elevenLabsReal } from './providers/elevenlabs';
 
 export interface TriggerCallInput {
   bookingId: string;
+  /** Destination number for the outbound call (E.164-ish). Required by the
+      real provider; the stub ignores it. */
+  toNumber?: string;
   /** Lead's first name for the agent's greeting; no other PII is passed. */
   toName?: string;
 }

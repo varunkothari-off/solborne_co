@@ -107,8 +107,21 @@ const pageDescription =
       </div>
 
       <div class="bk-card" data-step="consent" hidden>
-        <p class="bk-eyebrow">3 — Consent &amp; payment</p>
-        <h3 class="bk-q">One thing we need in writing.</h3>
+        <p class="bk-eyebrow">3 — Your number &amp; consent</p>
+        <h3 class="bk-q">Where should we call you?</h3>
+        <div class="bk-fields">
+          <div class="bk-field">
+            <label for="bk-phone">Phone (with country code)</label>
+            <input
+              id="bk-phone"
+              type="tel"
+              inputmode="tel"
+              autocomplete="tel"
+              placeholder="+91 98765 43210"
+              required
+            />
+          </div>
+        </div>
         <label class="bk-consent">
           <input type="checkbox" data-consent />
           <span>
@@ -301,17 +314,20 @@ const pageDescription =
         updateBookButton();
       });
 
-      // ---- Step 3: consent + booking ----
+      // ---- Step 3: phone + consent + booking ----
       const consentBox = qs<HTMLInputElement>('[data-consent]');
+      const phoneInput = qs<HTMLInputElement>('#bk-phone');
       const bookBtn = qs<HTMLButtonElement>('[data-book-btn]');
+      const phoneOk = () => /^\+?[0-9][0-9 ()\-]{6,20}$/.test(phoneInput.value.trim());
       function updateBookButton() {
         // Once a booking succeeds the button stays disabled — re-clicking must
         // not create a second booking + order.
         bookBtn.disabled =
           state.booked ||
-          !(consentBox.checked && state.token && state.selections.size > 0);
+          !(consentBox.checked && state.token && state.selections.size > 0 && phoneOk());
       }
       consentBox.addEventListener('change', updateBookButton);
+      phoneInput.addEventListener('input', updateBookButton);
       root.addEventListener('change', updateBookButton);
 
       bookBtn.addEventListener('click', async () => {
@@ -329,6 +345,7 @@ const pageDescription =
               lead_id: state.leadId,
               selections: [...state.selections],
               consent: true,
+              phone: phoneInput.value.trim(),
             }),
           });
           const data = await res.json();

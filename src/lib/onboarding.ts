@@ -28,11 +28,17 @@ export async function triggerCallForBooking(
     p_booking_id: bookingId,
   });
 
+  // The destination number lives server-side on the booking (never trusted
+  // from the caller here). The stub ignores it; the real provider dials it.
+  const toNumber = await internalRpc<string | null>('get_booking_phone', {
+    p_booking_id: bookingId,
+  });
+
   // 2. Now place the outbound call — the booking is confirmed paid.
   const provider = voiceProvider();
   let call;
   try {
-    call = await provider.triggerOutboundCall({ bookingId });
+    call = await provider.triggerOutboundCall({ bookingId, toNumber: toNumber ?? undefined });
   } catch (err) {
     // Dial failed: mark the call failed and hand the booking back to 'paid'
     // so it can be retried via POST /api/calls/trigger.

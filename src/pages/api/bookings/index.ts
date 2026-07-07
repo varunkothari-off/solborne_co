@@ -17,10 +17,15 @@ import { json, errorResponse, readJson, isUuid } from '../../../lib/api';
 import { paymentProvider } from '../../../lib/payments';
 import { computeCallPlan } from '../../../lib/onboarding';
 import { discoveryCallAmountPaise } from '../../../lib/env';
+import { rateLimit, clientKey, tooManyRequests } from '../../../lib/rateLimit';
 
 export const prerender = false;
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, clientAddress }) => {
+  // Cap booking/order-creation abuse: 15 per IP per minute.
+  const rl = rateLimit(clientKey(clientAddress, request, 'bookings'), 15, 60_000);
+  if (!rl.ok) return tooManyRequests(rl);
+
   const auth = await getUserFromRequest(request);
   if (!auth) return json({ error: 'authentication required' }, 401);
 
@@ -28,6 +33,7 @@ export const POST: APIRoute = async ({ request }) => {
     lead_id?: string;
     selections?: unknown;
     consent?: unknown;
+    phone?: unknown;
   } | null;
   if (!body) return json({ error: 'invalid JSON body' }, 400);
 
@@ -42,6 +48,12 @@ export const POST: APIRoute = async ({ request }) => {
       { error: 'explicit consent to the automated discovery call is required' },
       400
     );
+  }
+  // The discovery call is outbound, so a reachable number is required. The DB
+  // re-validates; this is the fast, friendly first check.
+  const phone = typeof body.phone === 'string' ? body.phone.trim() : '';
+  if (!/^\+?[0-9][0-9 ()\-]{6,20}$/.test(phone)) {
+    return json({ error: 'a valid phone number is required for the discovery call' }, 400);
   }
   const leadId = isUuid(body.lead_id) ? body.lead_id : null;
   const plan = computeCallPlan(selections);
@@ -58,6 +70,7 @@ export const POST: APIRoute = async ({ request }) => {
         p_selections: selections,
         p_call_plan: plan.callPlan,
         p_consent: true,
+        p_phone: phone,
       }
     );
 

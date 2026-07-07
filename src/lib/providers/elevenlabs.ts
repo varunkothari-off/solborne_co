@@ -23,15 +23,15 @@ export const elevenLabsReal: VoiceProvider = {
     const apiKey = requireEnv('ELEVENLABS_API_KEY');
     const agentId = requireEnv('ELEVENLABS_AGENT_ID');
     const phoneNumberId = requireEnv('ELEVENLABS_PHONE_NUMBER_ID');
-    // NOTE: the destination number must come from the booking record once
-    // phone capture is added — it is deliberately not modelled in the stub.
+    // The destination number is now captured on the booking and passed in.
+    if (!_input.toNumber) throw new Error('no destination number on booking');
     const res = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
       method: 'POST',
       headers: { 'xi-api-key': apiKey, 'content-type': 'application/json' },
       body: JSON.stringify({
         agent_id: agentId,
         agent_phone_number_id: phoneNumberId,
-        to_number: toNumber,
+        to_number: _input.toNumber,
         conversation_initiation_client_data: {
           dynamic_variables: { booking_id: _input.bookingId, lead_name: _input.toName ?? '' },
         },
