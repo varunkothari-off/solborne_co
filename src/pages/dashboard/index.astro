@@ -295,6 +295,23 @@ const pageDescription =
         }
       }
 
+      // Returning from Stripe Checkout (?package=success): the webhook is
+      // async, so poll briefly until the package flips active.
+      async function confirmStripeReturn(): Promise<void> {
+        if (new URLSearchParams(location.search).get('package') !== 'success') return;
+        const note = root!.querySelector<HTMLElement>('[data-pkg-note]')!;
+        for (let i = 0; i < 8 && !packageActive; i += 1) {
+          if (!packageActive) {
+            note.textContent = 'Confirming your payment…';
+            note.hidden = false;
+          }
+          await refreshPackage();
+          if (packageActive) break;
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        history.replaceState(null, '', location.pathname);
+      }
+
       root.querySelector('[data-unlock]')?.addEventListener('click', async () => {
         errorEl.hidden = true;
         const btn = root!.querySelector<HTMLButtonElement>('[data-unlock]')!;
@@ -305,17 +322,20 @@ const pageDescription =
           if (res.active) { await refreshPackage(); return; }
           pendingOrderId = res.order.order_id;
           const note = root!.querySelector<HTMLElement>('[data-pkg-note]')!;
-          if (res.order.stub) {
+          if (res.order.checkout_url) {
+            // REAL MODE: hand off to Stripe-hosted Checkout. The webhook — not
+            // this redirect — is what actually unlocks the package on return.
+            window.location.href = res.order.checkout_url;
+            return;
+          } else if (res.order.stub) {
             note.textContent =
               `Order ${res.order.order_id} created for ${res.order.display} ` +
               '(stub — no real payment system is connected yet, and no money moves).';
             note.hidden = false;
             root!.querySelector<HTMLElement>('[data-pkg-simulate]')!.hidden = false;
           } else {
-            // REAL MODE: launch Razorpay Checkout here once keys exist —
-            // see docs/wiring-checklist.md ("Go-live: Razorpay").
             note.textContent =
-              'Real payment keys are configured but Checkout is not wired on this page yet — see docs/wiring-checklist.md.';
+              'Payment could not be started — please try again, or write to us from the contact page.';
             note.hidden = false;
           }
         } catch (err) {
@@ -419,6 +439,7 @@ const pageDescription =
         root!.querySelector<HTMLElement>('[data-content]')!.hidden = false;
 
         await refreshPackage();
+        await confirmStripeReturn();
         const screenings = await api('/api/me/screenings').catch(() => ({ screenings: [] }));
         renderScreenings(screenings.screenings ?? []);
         const hasScreening = (screenings.screenings ?? []).length > 0;

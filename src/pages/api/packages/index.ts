@@ -7,8 +7,9 @@
  * GET  /api/packages — the member's package state + the price (Phase-0
  *      fair-pricing research: $1,497 flat, USD-first).
  * POST /api/packages — start/resume the purchase: creates the package
- *      booking + a payment order through the provider seam (Razorpay stub
- *      until real keys; the signed-webhook capture path is identical).
+ *      booking + a Stripe Checkout order through the provider seam (stub
+ *      until real keys; the signed-webhook capture path is identical). In
+ *      real mode the response carries the Stripe-hosted checkout URL.
  */
 import type { APIRoute } from 'astro';
 import { getUserFromRequest, userRpc, internalRpc } from '../../../lib/supabase';
@@ -48,16 +49,20 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     }
 
     const price = screeningPackagePrice();
+    const origin = new URL(request.url).origin;
     const provider = paymentProvider();
     const order = await provider.createOrder({
       bookingId: purchase.booking_id,
-      amountPaise: price.amountMinor, // minor units; currency per config
+      amountMinor: price.amountMinor,
       currency: price.currency,
+      description: 'Solborne & Co. — screening package',
+      successUrl: `${origin}/dashboard/?package=success`,
+      cancelUrl: `${origin}/dashboard/`,
     });
     await internalRpc('record_payment_order', {
       p_booking_id: purchase.booking_id,
       p_order_id: order.orderId,
-      p_amount: order.amountPaise,
+      p_amount: order.amountMinor,
       p_currency: order.currency,
     });
 
@@ -67,9 +72,10 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
         booking_id: purchase.booking_id,
         order: {
           order_id: order.orderId,
-          amount_minor: order.amountPaise,
+          amount_minor: order.amountMinor,
           currency: order.currency,
           display: price.display,
+          checkout_url: order.checkoutUrl ?? null,
           stub: order.stub,
         },
       },

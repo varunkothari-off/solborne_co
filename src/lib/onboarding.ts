@@ -1,7 +1,7 @@
 /**
- * Shared onboarding orchestration used by both the Razorpay webhook route
- * (auto-trigger after verified payment) and the internal
- * POST /api/calls/trigger endpoint.
+ * Shared onboarding orchestration. Since the flow-spec change, the webhook no
+ * longer auto-dials — this is invoked by the internal POST /api/calls/trigger
+ * (ops) and the "call me now" path on the members dashboard.
  *
  * The payment-before-call rule is enforced by ordering: reserve_call runs the
  * atomic paid-gate (and booking transition) in the database BEFORE the

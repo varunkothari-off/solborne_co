@@ -54,8 +54,10 @@ export function requireEnv(name: string): string {
 
 /** Stub-mode flags: true while the service's keys are absent/placeholders. */
 export const stubMode = {
-  get razorpay(): boolean {
-    return !realEnv('RAZORPAY_KEY_ID') || !realEnv('RAZORPAY_KEY_SECRET');
+  // Stripe is the payment rail (the package is USD-first). The webhook secret
+  // is checked separately, fail-closed, in payments.ts.
+  get stripe(): boolean {
+    return !realEnv('STRIPE_SECRET_KEY');
   },
   get elevenlabs(): boolean {
     return (

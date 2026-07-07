@@ -9,7 +9,7 @@
  * (spec constraint) — refused in-database as well.
  *
  * On success, creates the payment order via the payment provider seam
- * (Razorpay stub until real keys exist) and records it.
+ * (Stripe stub until real keys exist) and records it.
  */
 import type { APIRoute } from 'astro';
 import { getUserFromRequest, userRpc, internalRpc } from '../../../lib/supabase';
@@ -79,13 +79,13 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
       const provider = paymentProvider();
       order = await provider.createOrder({
         bookingId: booking_id,
-        amountPaise: discoveryCallAmountPaise(),
+        amountMinor: discoveryCallAmountPaise(),
         currency: 'INR',
       });
       await internalRpc('record_payment_order', {
         p_booking_id: booking_id,
         p_order_id: order.orderId,
-        p_amount: order.amountPaise,
+        p_amount: order.amountMinor,
         p_currency: order.currency,
       });
     } catch (orderErr) {
@@ -105,7 +105,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
         categories: plan.categories,
         order: {
           order_id: order.orderId,
-          amount: order.amountPaise,
+          amount: order.amountMinor,
           currency: order.currency,
           stub: order.stub,
         },

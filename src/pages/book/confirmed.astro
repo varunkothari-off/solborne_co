@@ -8,7 +8,7 @@ import { stubMode } from '../../lib/env';
 // in preview there is no real call, and the calls row stays 'triggered'
 // forever, so the page must not claim "the call is on its way".
 export const prerender = false;
-const previewMode = stubMode.razorpay || stubMode.elevenlabs;
+const previewMode = stubMode.stripe || stubMode.elevenlabs;
 
 /**
  * Part C of the onboarding flow: the post-payment status / reveal screen.

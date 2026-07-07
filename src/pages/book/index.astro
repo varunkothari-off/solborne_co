@@ -9,7 +9,7 @@ import { stubMode } from '../../lib/env';
 // must be told plainly that no real payment or call happens yet, before they
 // hand over an email or consent to anything.
 export const prerender = false;
-const previewMode = stubMode.razorpay || stubMode.elevenlabs;
+const previewMode = stubMode.stripe || stubMode.elevenlabs;
 
 /**
  * Part B of the onboarding flow: book the paid discovery call.
@@ -19,7 +19,7 @@ const previewMode = stubMode.razorpay || stubMode.elevenlabs;
  *   3. computes the related-vs-separate call plan from their multi-select,
  *   4. requires the explicit automated-call consent (spec constraint),
  *   5. creates the booking + payment order via POST /api/bookings.
- * In stub mode (no real Razorpay keys) payment is simulated server-side
+ * In stub mode (no real Stripe keys) payment is simulated server-side
  * through the SAME signed-webhook trust path real payments will use.
  */
 
@@ -137,9 +137,9 @@ const pageDescription =
         <p class="bk-eyebrow">Payment</p>
         <h3 class="bk-q" data-pay-title>Complete the payment.</h3>
         <p class="bk-note" data-pay-note></p>
-        <!-- STUB checkout: with real Razorpay keys this button is replaced by
-             Razorpay Checkout (see docs/wiring-checklist.md). The simulator
-             endpoint self-disables the moment real keys exist. -->
+        <!-- STUB checkout: with real Stripe keys this button is replaced by a
+             redirect to Stripe Checkout (see docs/wiring-checklist.md). The
+             simulator endpoint self-disables the moment real keys exist. -->
         <button type="button" class="bk-primary" data-simulate hidden>
           Simulate successful payment (stub)
         </button>
@@ -363,8 +363,8 @@ const pageDescription =
               `system is connected yet, and no money moves).`;
             show('[data-simulate]');
           } else {
-            // REAL MODE: launch Razorpay Checkout here once keys exist —
-            // see docs/wiring-checklist.md ("Go-live: Razorpay").
+            // REAL MODE: launch Stripe Checkout here once keys exist —
+            // see docs/wiring-checklist.md ("Go-live: Stripe").
             note.textContent =
               'Real payment keys are configured but Checkout is not wired on this page yet — see docs/wiring-checklist.md.';
           }
