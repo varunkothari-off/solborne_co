@@ -229,6 +229,23 @@ const pageDescription =
               `<li><a href="/services/${esc(m.slug)}/">${esc(m.name)} &rarr;</a><span>${esc(m.reason)}</span></li>`
           )
           .join('');
+        const wireframes: any[] = report.wireframes ?? [];
+        const wireframesHtml = wireframes.length
+          ? `<div class="db-rsec"><h4>What it could look like</h4>` +
+            (wireframes.some((w) => w.stub)
+              ? `<p class="db-quiet">Illustrative placeholders — real generated screens appear once Stitch is connected.</p>`
+              : `<p class="db-quiet">Illustrative screens for the recommended solution — a starting point, not a final design.</p>`) +
+            `<div class="db-wireframes">` +
+            wireframes
+              .map(
+                (w) =>
+                  `<figure class="db-wf"><img src="${esc(w.url)}" alt="${esc(w.label)} — illustrative screen" loading="lazy" />` +
+                  `<figcaption>${esc(w.label)}</figcaption></figure>`
+              )
+              .join('') +
+            `</div></div>`
+          : '';
+
         box.innerHTML =
           (report.stub
             ? `<p class="db-stubnote">Preview report</p>`
@@ -242,7 +259,8 @@ const pageDescription =
             .join('') +
           (matches
             ? `<div class="db-rsec"><h4>Where this maps in our catalog</h4><ul class="db-matches" role="list">${matches}</ul></div>`
-            : '');
+            : '') +
+          wireframesHtml;
       }
 
       function renderReportGenerating(startedAt: string | null, avgSeconds: number | null) {
@@ -883,6 +901,38 @@ const pageDescription =
     font-size: var(--text-caption);
     line-height: var(--leading-tight);
     color: var(--color-body);
+  }
+
+  /* ---- Report wireframes (Stitch) ---- */
+  .db-wireframes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-md);
+    margin-top: var(--space-sm);
+  }
+
+  .db-wf {
+    margin: 0;
+    border: var(--border-hairline);
+    border-radius: var(--radius-card);
+    overflow: hidden;
+    background: var(--color-paper);
+  }
+
+  .db-wf img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-bottom: var(--border-hairline);
+  }
+
+  .db-wf figcaption {
+    padding: 0.625rem 0.875rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-tag);
+    letter-spacing: var(--tracking-tag);
+    text-transform: uppercase;
+    color: var(--color-stone);
   }
 
   .db-gen {

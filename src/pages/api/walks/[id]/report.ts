@@ -24,8 +24,19 @@ import {
 import { json, errorResponse, isUuid } from '../../../../lib/api';
 import { rateLimit, clientKey, tooManyRequests } from '../../../../lib/rateLimit';
 import { generateWalkReport, isStageStub, type WalkAnswerInput } from '../../../../lib/llm';
+import { generateReportWireframes } from '../../../../lib/wireframes';
 
 export const prerender = false;
+
+// Cap the additive wireframe stage so a slow/hung Stitch call can never stall
+// the report: on timeout we finish the report with no images.
+const WIREFRAME_BUDGET_MS = 120_000;
+function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
+  ]);
+}
 
 async function ownsWalk(token: string, walkId: string): Promise<boolean> {
   const mine = await userRpc<{ walk_id: string }[]>(token, 'my_walks');
@@ -61,6 +72,15 @@ export const POST: APIRoute = async ({ request, params, clientAddress }) => {
           answers: payload.answers ?? [],
           contact: payload.contact ?? {},
         });
+        // ADDITIVE wireframe stage: classify the solution's shape and, for an
+        // app/website, attach Stitch screens. Never fails the report — the
+        // orchestrator swallows errors and the timeout bounds a slow call.
+        const wireframes = await withTimeout(
+          generateReportWireframes(walkId, report),
+          WIREFRAME_BUDGET_MS,
+          []
+        );
+        if (wireframes.length > 0) report.wireframes = wireframes;
         await internalRpc('finish_walk_report', {
           p_walk_id: walkId,
           p_report: report,

@@ -27,13 +27,28 @@ export interface WalkAnswerInput {
   transcript: string;
 }
 
+export interface ReportWireframe {
+  label: string;
+  /** Public storage URL, or a data: URI for stub previews without storage. */
+  url: string;
+  deviceType: string;
+  stub: boolean;
+}
+
 export interface WalkReport {
   headline: string;
   sections: { title: string; body: string }[];
   matches: { slug: string; name: string; reason: string }[];
+  /** Illustrative UI screens for the recommended solution (Google Stitch).
+      Optional + additive — absent when the solution has no visual shape, or
+      Stitch is unconfigured, or generation failed. Attached post-report. */
+  wireframes?: ReportWireframe[];
   /** true when produced by the stub — surfaced in the UI. */
   stub: boolean;
 }
+
+/** The recommended solution's visual shape, for the wireframe stage. */
+export type SolutionShape = 'app' | 'website' | 'none';
 
 type Stage = 'questions' | 'research' | 'report';
 
@@ -294,7 +309,7 @@ export async function generateWalkReport({
     apiKey
   );
 
-  const parsed = extractJson<Omit<WalkReport, 'stub'>>(text);
+  const parsed = extractJson<Omit<WalkReport, 'stub' | 'wireframes'>>(text);
   if (!parsed.headline || !Array.isArray(parsed.sections)) {
     throw new Error('model returned malformed report');
   }
@@ -317,4 +332,69 @@ export async function generateWalkReport({
       })),
     stub: false,
   };
+}
+
+/** Flat text summary of a report, for the cheap shape-classification call. */
+function reportSummary(report: WalkReport): string {
+  return [
+    report.headline,
+    ...report.sections.map((s) => `${s.title}: ${s.body}`),
+    ...report.matches.map((m) => `${m.name}: ${m.reason}`),
+  ]
+    .join('\n')
+    .slice(0, 4000);
+}
+
+/** Keyword heuristic fallback: does the recommended solution have a UI shape? */
+function heuristicShape(report: WalkReport): SolutionShape {
+  const text = reportSummary(report).toLowerCase();
+  const app = /\b(mobile app|ios|android|phone app|on-the-go|native app)\b/.test(text);
+  const web = /\b(website|web app|dashboard|portal|landing page|web platform|browser|admin panel|client portal)\b/.test(text);
+  const backend = /\b(automation|integration|pipeline|script|backend|api|webhook|batch job|data sync|no ui|behind the scenes)\b/.test(text);
+  if (app) return 'app';
+  if (web) return 'website';
+  // Ambiguous or backend-leaning: skip rather than force an irrelevant image.
+  if (backend) return 'none';
+  return 'none';
+}
+
+/**
+ * WIREFRAME STAGE (classification half) — reads the finished report and
+ * decides the recommended solution's visual shape. A small, cheap LLM call
+ * (its own model via LLM_MODEL_WIREFRAME, defaulting to a cheap model) reusing
+ * the REPORT stage key — no new billed key tier. Falls back to a keyword
+ * heuristic if the key is absent or the call fails, and never throws.
+ */
+export async function classifySolutionShape(report: WalkReport): Promise<SolutionShape> {
+  // A stub report has no real recommendation to classify, but the pipeline
+  // should still be demonstrable in dev — treat it as a website so the Stitch
+  // stub renders placeholder screens.
+  if (report.stub) return 'website';
+
+  const apiKey = stageApiKey('report');
+  if (!apiKey) return heuristicShape(report);
+  const model = envVar('LLM_MODEL_WIREFRAME') || 'claude-haiku-4-5';
+
+  try {
+    const text = await anthropicCall(
+      {
+        model,
+        max_tokens: 8,
+        system:
+          'You classify what the recommended solution in an AI-advisory report would LOOK like. ' +
+          'Answer with EXACTLY one word: ' +
+          '"app" if the natural shape is a mobile app; ' +
+          '"website" if it is a website, web app, dashboard, or portal; ' +
+          '"none" if it has no clear visual shape (a backend automation, integration, or script with no UI). ' +
+          'One word only, lowercase, no punctuation.',
+        messages: [{ role: 'user', content: reportSummary(report) }],
+      },
+      apiKey
+    );
+    const word = text.toLowerCase().match(/app|website|none/)?.[0];
+    return (word as SolutionShape) || heuristicShape(report);
+  } catch (err) {
+    console.warn('[llm] shape classification failed, using heuristic:', err);
+    return heuristicShape(report);
+  }
 }
