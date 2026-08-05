@@ -48,11 +48,20 @@ export async function createSessionForBooking(
 
   // 3. Record the conversation id against the reserved row BEFORE the token
   //    goes anywhere — this is what lets the post-call webhook (keyed on
-  //    conversation_id) find its way back to this call.
-  await internalRpc('attach_provider_call_id', {
-    p_call_id: callId,
-    p_provider_call_id: session.conversationId,
-  });
+  //    conversation_id) find its way back to this call. If this write fails
+  //    (transient DB/network), compensate: mark the call failed and hand the
+  //    booking back to 'paid', so it isn't wedged in 'call_scheduled' with a
+  //    call row that has no conversation_id and no way to complete. The token
+  //    is withheld either way (we throw).
+  try {
+    await internalRpc('attach_provider_call_id', {
+      p_call_id: callId,
+      p_provider_call_id: session.conversationId,
+    });
+  } catch (err) {
+    await internalRpc('mark_call_failed', { p_call_id: callId }).catch(() => {});
+    throw err;
+  }
   return {
     callId,
     conversationId: session.conversationId,

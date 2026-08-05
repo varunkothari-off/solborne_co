@@ -68,6 +68,34 @@ export const stubMode = {
   },
 };
 
+/**
+ * Refuse to mint a REAL ElevenLabs session while the payment rail is still a
+ * stub. Otherwise a fabricated 'paid' state (the stub simulate-payment route,
+ * or a forged stub-signed webhook) would let anyone with an account spend real
+ * ElevenLabs agent credits — the paid-gate is real, but "paid" itself isn't.
+ *
+ * The founder's supervised release-gate test has to mint a real session before
+ * Stripe is live, so this is deliberately overridable with
+ * SCREENING_ALLOW_STUB_PAYMENTS=true. Set it ONLY for that supervised test and
+ * unset it before public launch.
+ */
+export function realVoiceBlockedByStubPayments(): boolean {
+  if (stubMode.elevenlabs) return false; // stub voice makes no network call
+  if (!stubMode.stripe) return false; // real payments behind the gate — fine
+  return envVar('SCREENING_ALLOW_STUB_PAYMENTS') !== 'true';
+}
+
+/**
+ * Anti-abuse ceiling on how many real agent sessions ONE paid package can
+ * mint (enforced in begin_screening_session). This is a safety cap, not the
+ * deliberate product allowance — the founder sets the real number. Default 10.
+ */
+export function screeningSessionsPerPackage(): number {
+  const raw = envVar('SCREENING_SESSIONS_PER_PACKAGE');
+  const n = raw ? Number.parseInt(raw, 10) : NaN;
+  return Number.isFinite(n) && n > 0 ? n : 10;
+}
+
 /** Discovery-call order amount in paise. LEGACY (/book flow only). */
 export function discoveryCallAmountPaise(): number {
   const raw = envVar('DISCOVERY_CALL_AMOUNT_PAISE');

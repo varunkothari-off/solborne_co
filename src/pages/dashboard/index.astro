@@ -404,8 +404,19 @@ const pageDescription =
       // ---- The live call (in-browser WebRTC session) ----
       // States: idle -> connecting -> live (speaking/listening) -> ended.
       // Stub mode (no ElevenLabs keys) shows a simulated session, no network.
-      let session: Awaited<ReturnType<typeof Conversation.startSession>> | null = null;
+      //
+      // Lifecycle discipline (per the WebRTC review): every live session must
+      // be *ended* — not merely dereferenced — on error, disconnect, or a new
+      // start, or the mic stays hot and ElevenLabs keeps billing. A monotonic
+      // `callGen` tags each start; any callback whose generation is stale
+      // no-ops, and superseding a session always ends it. `session` is
+      // captured in onConversationCreated so it exists before any onError can
+      // fire (the SDK flushes queued setup events after the instance is made).
+      type LiveSession = Awaited<ReturnType<typeof Conversation.startSession>>;
+      let session: LiveSession | null = null;
       let sessionStub = false;
+      let starting = false;
+      let callGen = 0;
       let callTick: ReturnType<typeof setInterval> | null = null;
       let callT0 = 0;
 
@@ -450,21 +461,28 @@ const pageDescription =
           the outcome on this page. If you were cut off, start again any time.</p>`;
       }
 
-      function resetCall() {
+      function resetToIdle() {
         if (callTick) clearInterval(callTick);
-        session = null;
         sessionStub = false;
         idleBox().hidden = false;
         liveBox().hidden = true;
         liveBox().innerHTML = '';
       }
 
-      async function endCall() {
+      // End and drop the current live session (releases the mic, stops
+      // billing). Safe to call when there is none.
+      async function stopSession() {
         const s = session;
         session = null;
-        try {
-          if (s) await s.endSession();
-        } catch { /* already closed */ }
+        if (s) {
+          try { await s.endSession(); } catch { /* already closed */ }
+        }
+      }
+
+      // User pressed "End", or is signing out.
+      async function endCall() {
+        callGen += 1; // invalidate this session's callbacks
+        await stopSession();
         renderCall('ended');
         api('/api/me/screenings')
           .then((mine) => renderScreenings(mine.screenings ?? []))
@@ -472,17 +490,21 @@ const pageDescription =
       }
 
       async function startCall() {
+        if (starting || session) return; // never stack a second live session
+        starting = true;
         errorEl.hidden = true;
+        const myGen = ++callGen;
         const btn = root!.querySelector<HTMLButtonElement>('[data-start-call]')!;
         btn.disabled = true;
         renderCall('connecting');
         try {
-          // Server-side: paid-package gate, token mint, conversation_id
-          // stored — all before this response exists.
+          // Server-side: paid-package gate, session cap, token mint,
+          // conversation_id stored — all before this response exists.
           const prep = await api('/api/screenings', {
             method: 'POST',
             body: JSON.stringify({ walk_id: walkId }),
           });
+          if (myGen !== callGen) return; // superseded (e.g. signout) mid-await
           sessionStub = prep.stub === true;
 
           if (sessionStub) {
@@ -491,15 +513,21 @@ const pageDescription =
             return;
           }
 
+          // Preflight the mic so a denied permission fails early and clearly,
+          // then release it immediately — the SDK acquires its own track, and
+          // leaving this one live would keep the browser's mic indicator on.
+          let micStream: MediaStream;
           try {
-            await navigator.mediaDevices.getUserMedia({ audio: true });
+            micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
           } catch {
-            resetCall();
+            resetToIdle();
             fail('Microphone access is needed for the call — allow it in your browser and try again.');
             return;
           }
+          micStream.getTracks().forEach((t) => t.stop());
+          if (myGen !== callGen) return;
 
-          session = await Conversation.startSession({
+          const conv = await Conversation.startSession({
             conversationToken: prep.token,
             connectionType: 'webrtc',
             // Informational for the agent's greeting only — the server
@@ -508,23 +536,53 @@ const pageDescription =
               booking_id: prep.screening_id,
               lead_name: prep.lead_name ?? '',
             },
-            onConnect: () => renderCall('live'),
+            // Capture the instance the moment it exists, before the SDK flushes
+            // any queued setup event (an onError in that window must be able to
+            // end a real session, not orphan it).
+            onConversationCreated: (created) => {
+              if (myGen !== callGen) {
+                created.endSession().catch(() => {});
+                return;
+              }
+              session = created;
+            },
+            onConnect: () => {
+              if (myGen === callGen) renderCall('live');
+            },
             onModeChange: ({ mode }) => {
+              if (myGen !== callGen) return;
               const el = liveBox().querySelector<HTMLElement>('[data-call-mode]');
               if (el) el.textContent = mode === 'speaking' ? 'speaking' : 'listening';
             },
             onDisconnect: () => {
-              if (session) { session = null; renderCall('ended'); }
+              if (myGen !== callGen) return;
+              callGen += 1;
+              session = null;
+              renderCall('ended');
+              api('/api/me/screenings')
+                .then((mine) => renderScreenings(mine.screenings ?? []))
+                .catch(() => {});
             },
             onError: (message) => {
-              resetCall();
+              if (myGen !== callGen) return;
+              callGen += 1; // supersede: no later callback for this session acts
+              void stopSession(); // end it — mic released, billing stopped
+              resetToIdle();
               fail(typeof message === 'string' && message ? message : 'The call hit a problem — try again.');
             },
           });
+          // If we were superseded between onConversationCreated and here, make
+          // sure the returned instance is torn down too.
+          if (myGen !== callGen) conv.endSession().catch(() => {});
         } catch (err) {
-          resetCall();
-          fail(err instanceof Error ? err.message : 'Could not start the call.');
+          if (myGen === callGen) {
+            callGen += 1;
+            await stopSession();
+            resetToIdle();
+            fail(err instanceof Error ? err.message : 'Could not start the call.');
+          }
         } finally {
+          starting = false;
           btn.disabled = false;
         }
       }
@@ -563,7 +621,12 @@ const pageDescription =
         await confirmStripeReturn();
         const screenings = await api('/api/me/screenings').catch(() => ({ screenings: [] }));
         renderScreenings(screenings.screenings ?? []);
-        const hasScreening = (screenings.screenings ?? []).length > 0;
+        // Only a session that actually connected counts as "screening done" on
+        // the journey map — a 'cancelled' (mint failed) or 'scheduled'
+        // (reserved) row must not mark the step complete.
+        const hasScreening = (screenings.screenings ?? []).some(
+          (s: any) => s.status === 'triggered' || s.status === 'completed'
+        );
 
         if (!current) {
           renderJourney('walk', []);
