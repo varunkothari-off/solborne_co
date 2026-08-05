@@ -11,6 +11,7 @@
  */
 import { internalRpc } from './supabase';
 import { voiceProvider } from './voice';
+import { realVoiceBlockedByStubPayments } from './env';
 import { roadmap } from '../data/roadmap';
 
 export interface BookingSessionResult {
@@ -26,6 +27,17 @@ export interface BookingSessionResult {
 export async function createSessionForBooking(
   bookingId: string
 ): Promise<BookingSessionResult> {
+  // Same cross-service guard the public /api/screenings route applies: never
+  // mint a real (billable) session while the payment rail is a stub, since a
+  // legacy booking's 'paid' could itself have come from the stub rail. This
+  // path is ops-only (internal secret), but the founder can lift it the same
+  // way (SCREENING_ALLOW_STUB_PAYMENTS) for the supervised release-gate test.
+  if (realVoiceBlockedByStubPayments()) {
+    throw new Error(
+      'screening calls are unavailable while the payment rail is a stub (set SCREENING_ALLOW_STUB_PAYMENTS=true only for the supervised test)'
+    );
+  }
+
   // 1. DB gate FIRST: reserve_call atomically requires status='paid' and
   //    transitions the booking to 'call_scheduled', inserting the calls row.
   //    No token is minted until this passes, so an unpaid booking can never
@@ -42,7 +54,9 @@ export async function createSessionForBooking(
   } catch (err) {
     // Mint failed: mark the call failed and hand the booking back to 'paid'
     // so it can be retried via POST /api/calls/trigger.
-    await internalRpc('mark_call_failed', { p_call_id: callId }).catch(() => {});
+    await internalRpc('mark_call_failed', { p_call_id: callId }).catch((e) =>
+      console.error('[onboarding] mark_call_failed compensation failed for call', callId, e)
+    );
     throw err;
   }
 
@@ -59,7 +73,9 @@ export async function createSessionForBooking(
       p_provider_call_id: session.conversationId,
     });
   } catch (err) {
-    await internalRpc('mark_call_failed', { p_call_id: callId }).catch(() => {});
+    await internalRpc('mark_call_failed', { p_call_id: callId }).catch((e) =>
+      console.error('[onboarding] mark_call_failed compensation failed for call', callId, e)
+    );
     throw err;
   }
   return {
