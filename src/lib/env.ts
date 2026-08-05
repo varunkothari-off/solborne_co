@@ -66,6 +66,11 @@ export const stubMode = {
       !realEnv('ELEVENLABS_API_KEY_AGENT') || !realEnv('ELEVENLABS_AGENT_ID')
     );
   },
+  // Google Stitch wireframes (report add-on). Absent key => stub => the
+  // report renders with no images. Experimental; never a hard dependency.
+  get stitch(): boolean {
+    return !realEnv('STITCH_API_KEY');
+  },
 };
 
 /**

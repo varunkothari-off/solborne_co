@@ -131,6 +131,32 @@ export async function storeWalkAudio(
   return path;
 }
 
+/**
+ * Archive a generated report wireframe in the PUBLIC walk-wireframes bucket
+ * (same mechanism as storeWalkAudio; public so the client report can <img>
+ * it directly). Returns the public URL, or null when the service key isn't
+ * set — callers must degrade gracefully (the report renders without images).
+ */
+export async function storeWalkWireframe(
+  walkId: string,
+  index: number,
+  image: Buffer,
+  mime: string
+): Promise<string | null> {
+  const client = serviceClient();
+  if (!client) return null;
+  const ext = mime.includes('svg') ? 'svg' : mime.includes('jpeg') ? 'jpg' : 'png';
+  const path = `${walkId}/screen-${index}.${ext}`;
+  const { error } = await client.storage
+    .from('walk-wireframes')
+    .upload(path, image, { contentType: mime || 'image/png', upsert: true });
+  if (error) {
+    console.warn('[storage] wireframe upload failed:', error.message);
+    return null;
+  }
+  return client.storage.from('walk-wireframes').getPublicUrl(path).data.publicUrl;
+}
+
 /** Constant-time check of the internal-secret header for internal routes.
  *  Uses realEnv, so a placeholder INTERNAL_API_SECRET is treated as absent
  *  and the gate fails CLOSED rather than accepting the committed template
