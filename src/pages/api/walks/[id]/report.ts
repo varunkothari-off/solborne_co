@@ -5,9 +5,10 @@
  *
  * Generation runs as a fire-and-forget async job in this node process:
  * start_walk_report() flips submitted → report_generating atomically (so a
- * double-kick can't run two generations), the LLM produces the report
- * (with web research when the Anthropic key is real), finish_walk_report()
- * stores it. On failure the walk returns to 'submitted' for retry.
+ * double-kick can't run two generations), the LLM produces the report (via
+ * lib/llm.ts's REPORT stage, which runs its own RESEARCH stage first when
+ * either key is real), finish_walk_report() stores it. On failure the walk
+ * returns to 'submitted' for retry.
  *
  * Kick auth: the walk's owner (Bearer) — or the internal secret header.
  */
@@ -22,7 +23,7 @@ import {
 } from '../../../../lib/supabase';
 import { json, errorResponse, isUuid } from '../../../../lib/api';
 import { rateLimit, clientKey, tooManyRequests } from '../../../../lib/rateLimit';
-import { llmProvider, type WalkAnswerInput } from '../../../../lib/llm';
+import { generateWalkReport, isStageStub, type WalkAnswerInput } from '../../../../lib/llm';
 
 export const prerender = false;
 
@@ -54,10 +55,9 @@ export const POST: APIRoute = async ({ request, params, clientAddress }) => {
       answers: WalkAnswerInput[];
     }>('start_walk_report', { p_walk_id: walkId });
 
-    const llm = llmProvider();
     void (async () => {
       try {
-        const report = await llm.generateWalkReport({
+        const report = await generateWalkReport({
           answers: payload.answers ?? [],
           contact: payload.contact ?? {},
         });
@@ -71,7 +71,7 @@ export const POST: APIRoute = async ({ request, params, clientAddress }) => {
       }
     })();
 
-    return json({ ok: true, generating: true, stub: llm.isStub }, 202);
+    return json({ ok: true, generating: true, stub: isStageStub('report') }, 202);
   } catch (err) {
     // "not awaiting a report" = already generating/ready — report as OK state.
     if (err instanceof RpcError && err.status === 400) {

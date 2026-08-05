@@ -7,7 +7,7 @@ import type { APIRoute } from 'astro';
 import { rpc, internalRpc } from '../../../../lib/supabase';
 import { json, errorResponse, isUuid } from '../../../../lib/api';
 import { rateLimit, clientKey, tooManyRequests } from '../../../../lib/rateLimit';
-import { llmProvider, type WalkAnswerInput } from '../../../../lib/llm';
+import { generateWalkQuestions, type WalkAnswerInput } from '../../../../lib/llm';
 
 export const prerender = false;
 
@@ -34,13 +34,12 @@ export const POST: APIRoute = async ({ request, params, clientAddress }) => {
       return json({ error: 'answer the first questions before this step' }, 400);
     }
 
-    const llm = llmProvider();
-    const questions = await llm.generateWalkQuestions(partOne);
+    const generated = await generateWalkQuestions(partOne);
     const stored = await internalRpc<{ questions: string[] }>('set_walk_questions', {
       p_walk_id: params.id,
-      p_questions: questions,
+      p_questions: generated.questions,
     });
-    return json({ questions: stored.questions, stub: llm.isStub, cached: false });
+    return json({ questions: stored.questions, stub: generated.stub, cached: false });
   } catch (err) {
     return errorResponse(err);
   }

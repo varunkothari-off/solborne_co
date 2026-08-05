@@ -4,7 +4,7 @@ import PageIntro from '../../components/PageIntro.astro';
 import Section from '../../components/Section.astro';
 import { walk, walkParts, partOneQuestions, partThreeFields } from '../../data/walk';
 import { voicePreviewMode } from '../../lib/stt';
-import { llmProvider } from '../../lib/llm';
+import { isStageStub } from '../../lib/llm';
 
 /**
  * The Walk — voice-first intake.
@@ -14,7 +14,7 @@ import { llmProvider } from '../../lib/llm';
  * Rendered per-request so preview-mode (no STT / no LLM key yet) is honest.
  */
 export const prerender = false;
-const previewMode = voicePreviewMode() || llmProvider().isStub;
+const previewMode = voicePreviewMode() || isStageStub('questions');
 
 const pageTitle = `${walk.name} — Solborne & Co.`;
 const pageDescription =
@@ -28,8 +28,8 @@ const pageDescription =
     <p>
       No forms, no menus — you talk, we listen. {partOneQuestions.length} plain
       questions to start, then the questions your answers earn, then a few typed
-      facts so we can research you properly. Most people should be done inside
-      {walk.targetMinutes} minutes; take longer if you have more to say.
+      facts so we can research you properly. Most people are done inside
+      {walk.targetMinutes} minutes.
     </p>
   </PageIntro>
 
@@ -40,10 +40,11 @@ const pageDescription =
           <div class="wk-preview" role="note">
             <p class="wk-preview-label">Preview mode</p>
             <p>
-              The flow is fully working, but voice transcription and report
-              generation aren't connected to live services yet — recordings get
-              a placeholder transcript. Everything switches on automatically
-              when the keys are added.
+              The flow is fully working, but voice transcription and the
+              generated follow-up questions aren't connected to live services
+              yet here — recordings get a placeholder transcript, switching on
+              automatically once the keys are added. Report generation is a
+              separate, later step, with its own status once you're a member.
             </p>
           </div>
         )
@@ -83,7 +84,7 @@ const pageDescription =
     };
     type Config = {
       walk: { name: string; cta: string; path: string; targetMinutes: number };
-      parts: { key: string; label: string; blurb: string }[];
+      parts: { key: string; label: string }[];
       partOne: string[];
       fields: Field[];
     };
@@ -219,12 +220,10 @@ const pageDescription =
         renderProgress();
         stage.innerHTML = `
           <h3 class="wk-q">Ready when you are.</h3>
-          <p class="wk-copy">Three parts. In the first two you only speak — no typing.
-          The third is a short set of typed facts so we can research you properly.
-          A timer runs from the moment you begin; most people should finish inside
-          ${cfg.walk.targetMinutes} minutes.</p>
+          <p class="wk-copy">A timer starts the moment you begin — most people are done
+          inside ${cfg.walk.targetMinutes} minutes, longer if you have more to say.</p>
           <p class="wk-copy wk-copy--quiet">You'll need a microphone. We record each answer,
-          transcribe it word for word, and show you the transcript as you go.</p>
+          transcribe it word for word, and show you the transcript before you move on.</p>
           <button type="button" class="wk-primary" data-begin>Begin the walk &rarr;</button>`;
         stage.querySelector('[data-begin]')?.addEventListener('click', begin);
       }
@@ -296,11 +295,9 @@ const pageDescription =
       function showQuestion() {
         renderProgress();
         const q = currentQuestion();
-        const partBlurb = state.part === 'one' ? cfg.parts[0].blurb : cfg.parts[1].blurb;
         stage.innerHTML = `
           <p class="wk-eyebrow">${esc(state.part === 'one' ? cfg.parts[0].label : cfg.parts[1].label)}</p>
           <h3 class="wk-q">${esc(q)}</h3>
-          <p class="wk-copy wk-copy--quiet">${esc(partBlurb)}</p>
           <div class="wk-rec">
             <button type="button" class="wk-mic" data-rec aria-label="Start recording">
               <span class="wk-mic-dot" aria-hidden="true"></span>
@@ -310,9 +307,15 @@ const pageDescription =
           <div class="wk-transcript" data-transcript hidden>
             <p class="wk-transcript-label">What we heard</p>
             <p class="wk-transcript-text" data-transcript-text></p>
-            <div class="wk-row">
+            <textarea class="wk-transcript-edit" data-transcript-edit hidden></textarea>
+            <div class="wk-row" data-view-actions>
               <button type="button" class="wk-primary" data-accept>Sounds right &rarr;</button>
+              <button type="button" class="wk-quiet" data-edit>Edit</button>
               <button type="button" class="wk-quiet" data-again>Say it again</button>
+            </div>
+            <div class="wk-row" data-edit-actions hidden>
+              <button type="button" class="wk-primary" data-save-edit>Save &rarr;</button>
+              <button type="button" class="wk-quiet" data-cancel-edit>Cancel</button>
             </div>
           </div>`;
         wireRecorder();
@@ -323,8 +326,14 @@ const pageDescription =
         const recState = stage.querySelector<HTMLElement>('[data-rec-state]')!;
         const transcriptBox = stage.querySelector<HTMLElement>('[data-transcript]')!;
         const transcriptText = stage.querySelector<HTMLElement>('[data-transcript-text]')!;
+        const transcriptEdit = stage.querySelector<HTMLTextAreaElement>('[data-transcript-edit]')!;
+        const viewActions = stage.querySelector<HTMLElement>('[data-view-actions]')!;
+        const editActions = stage.querySelector<HTMLElement>('[data-edit-actions]')!;
 
         let recording = false;
+        // While true, the mic button appends a transcribed clip to the edit
+        // textarea instead of replacing the saved answer — see onRecorded().
+        let editMode = false;
 
         btn.addEventListener('click', async () => {
           clearError();
@@ -363,6 +372,33 @@ const pageDescription =
             recState.textContent = 'That was very short — tap and take your time.';
             return;
           }
+
+          if (editMode) {
+            recState.textContent = 'Transcribing…';
+            try {
+              const audioBase64 = await blobToBase64(blob);
+              const { transcript } = await api(`/api/walks/${state.walkId}/answers`, {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({
+                  section: state.part,
+                  index: state.qIndex,
+                  question: currentQuestion(),
+                  audio_base64: audioBase64,
+                  mime: blob.type,
+                  transcribe_only: true,
+                }),
+              });
+              const sep = transcriptEdit.value.trim() ? ' ' : '';
+              transcriptEdit.value = `${transcriptEdit.value}${sep}${transcript}`;
+              recState.textContent = 'Added — keep editing, add more, or save.';
+            } catch (err) {
+              recState.textContent = 'Tap the mic to add more by speaking.';
+              fail(err instanceof Error ? err.message : 'Could not transcribe that — try again.');
+            }
+            return;
+          }
+
           recState.textContent = 'Transcribing…';
           try {
             const audioBase64 = await blobToBase64(blob);
@@ -381,17 +417,71 @@ const pageDescription =
             state.answered[state.part as 'one' | 'two'].add(state.qIndex);
             transcriptText.textContent = saved.transcript;
             transcriptBox.hidden = false;
-            recState.textContent = 'Not quite right? Record over it.';
-            transcriptBox.querySelector('[data-accept]')?.addEventListener('click', advance, { once: true });
-            transcriptBox.querySelector('[data-again]')?.addEventListener('click', () => {
-              transcriptBox.hidden = true;
-              recState.textContent = 'Tap to speak';
-            });
+            recState.textContent = 'Not quite right? Edit it, or record over it.';
           } catch (err) {
             recState.textContent = 'Tap to speak';
             fail(err instanceof Error ? err.message : 'Could not save that answer — try again.');
           }
         }
+
+        stage.querySelector('[data-accept]')?.addEventListener('click', advance);
+
+        stage.querySelector('[data-again]')?.addEventListener('click', () => {
+          transcriptBox.hidden = true;
+          recState.textContent = 'Tap to speak';
+        });
+
+        stage.querySelector('[data-edit]')?.addEventListener('click', () => {
+          editMode = true;
+          transcriptEdit.value = transcriptText.textContent ?? '';
+          transcriptText.hidden = true;
+          transcriptEdit.hidden = false;
+          viewActions.hidden = true;
+          editActions.hidden = false;
+          recState.textContent = 'Tap the mic to add more by speaking, or edit the text directly.';
+          transcriptEdit.focus();
+        });
+
+        stage.querySelector('[data-cancel-edit]')?.addEventListener('click', () => {
+          editMode = false;
+          transcriptEdit.hidden = true;
+          transcriptText.hidden = false;
+          editActions.hidden = true;
+          viewActions.hidden = false;
+          recState.textContent = 'Not quite right? Edit it, or record over it.';
+        });
+
+        stage.querySelector('[data-save-edit]')?.addEventListener('click', async () => {
+          const text = transcriptEdit.value.trim();
+          if (!text) { fail('Write or say something before saving.'); return; }
+          const saveBtn = stage.querySelector<HTMLButtonElement>('[data-save-edit]')!;
+          saveBtn.disabled = true;
+          try {
+            const saved = await api(`/api/walks/${state.walkId}/answers`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                section: state.part,
+                index: state.qIndex,
+                question: currentQuestion(),
+                manual_transcript: text,
+              }),
+            });
+            state.transcripts[`${state.part}:${state.qIndex}`] = saved.transcript;
+            state.answered[state.part as 'one' | 'two'].add(state.qIndex);
+            transcriptText.textContent = saved.transcript;
+            editMode = false;
+            transcriptEdit.hidden = true;
+            transcriptText.hidden = false;
+            editActions.hidden = true;
+            viewActions.hidden = false;
+            recState.textContent = 'Not quite right? Edit it, or record over it.';
+          } catch (err) {
+            fail(err instanceof Error ? err.message : 'Could not save your edit — try again.');
+          } finally {
+            saveBtn.disabled = false;
+          }
+        });
       }
 
       async function advance() {
@@ -794,6 +884,24 @@ const pageDescription =
     color: var(--color-body-strong);
     white-space: pre-wrap;
     margin-bottom: var(--space-sm);
+  }
+
+  .wk-transcript-edit {
+    width: 100%;
+    min-height: 6rem;
+    background: var(--color-paper);
+    border: var(--border-hairline);
+    border-radius: var(--radius-swatch);
+    padding: 0.75rem 1rem;
+    font-size: var(--text-body-sm);
+    line-height: var(--leading-body);
+    color: var(--color-ink);
+    margin-bottom: var(--space-sm);
+    resize: vertical;
+  }
+
+  .wk-transcript-edit:focus {
+    border-color: var(--color-steel);
   }
 
   .wk-row {

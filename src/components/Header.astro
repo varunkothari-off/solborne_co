@@ -28,6 +28,10 @@ const navItems = [
   ...(site.showCaseStudies ? [{ href: '/case-studies/', label: 'Case Studies' }] : []),
   { href: '/about/', label: 'About' },
   { href: '/contact/', label: 'Contact' },
+  // Members' way back in. /dashboard/ redirects to /login/ itself when
+  // there's no session, and /login/ redirects straight to /dashboard/ when
+  // there already is one — so one static link covers both directions.
+  { href: '/dashboard/', label: 'Members' },
 ];
 
 const currentPath = Astro.url.pathname.replace(/\/?$/, '/');

@@ -33,7 +33,10 @@ export const POST: APIRoute = async ({ request, params, clientAddress }) => {
     }
   }
   const phone = contact.phone;
-  if (phone && !/^\+?[0-9][0-9 ()\-]{6,20}$/.test(phone)) {
+  if (!phone) {
+    return json({ error: 'phone number is required — the screening call needs it' }, 400);
+  }
+  if (!/^\+?[0-9][0-9 ()\-]{6,20}$/.test(phone)) {
     return json({ error: 'phone number looks wrong — include the country code' }, 400);
   }
 

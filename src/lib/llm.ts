@@ -1,14 +1,22 @@
 /**
- * LLM seam for the walk: generates Part 2's "right questions" from the Part 1
- * transcripts, and generates the preliminary report on the members dashboard.
+ * LLM seam for the walk — split into three independently-keyed, independently-
+ * modeled stages so each can be tracked and billed separately in the
+ * Anthropic console: QUESTIONS (Part 2's "right questions" from Part 1
+ * transcripts), RESEARCH (web research from Part 3's typed facts), and
+ * REPORT (the final synthesis of transcripts + research into the
+ * preliminary audit).
  *
  * Real provider: Anthropic Claude API via plain fetch (no SDK dependency).
- * Stub while ANTHROPIC_API_KEY is absent/placeholder: deterministic canned
- * output, clearly labelled, zero network calls.
+ * Stub while a stage's key is absent/placeholder: deterministic canned
+ * output, clearly labelled, zero network calls — independently per stage.
  *
- * Cost notes (verified 2026-07-07): default model claude-sonnet-5 at
- * $2/$10 per MTok intro pricing — question generation ≈ $0.01/walk, a
- * researched report ≈ $0.15–0.40/walk. Set LLM_MODEL in .env to override.
+ * Env per stage (falls back left-to-right): ANTHROPIC_API_KEY_<STAGE> ->
+ * ANTHROPIC_API_KEY (shared) -> stub. Model: LLM_MODEL_<STAGE> ->
+ * LLM_MODEL (shared) -> claude-sonnet-5.
+ *
+ * Cost notes (verified 2026-07-07): claude-sonnet-5 at $2/$10 per MTok intro
+ * pricing — question generation ≈ $0.01/walk, research + report combined
+ * ≈ $0.15-0.40/walk (see docs/go-live-checklist.md §1a).
  */
 import { envVar, realEnv } from './env';
 import { roadmap } from '../data/roadmap';
@@ -27,15 +35,7 @@ export interface WalkReport {
   stub: boolean;
 }
 
-export interface LlmProvider {
-  readonly name: string;
-  readonly isStub: boolean;
-  generateWalkQuestions(answers: WalkAnswerInput[]): Promise<string[]>;
-  generateWalkReport(input: {
-    answers: WalkAnswerInput[];
-    contact: Record<string, unknown>;
-  }): Promise<WalkReport>;
-}
+type Stage = 'questions' | 'research' | 'report';
 
 /** Compact catalog context so the report maps pain to real workflows. */
 function catalogContext(): string {
@@ -48,16 +48,30 @@ function catalogContext(): string {
   return lines.join('\n');
 }
 
+function factsFromContact(contact: Record<string, unknown>): string {
+  return Object.entries(contact)
+    .filter(([k, v]) => v && k !== 'email' && k !== 'phone')
+    .map(([k, v]) => `${k}: ${String(v).slice(0, 500)}`)
+    .join('\n');
+}
+
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
-function model(): string {
-  return envVar('LLM_MODEL') || 'claude-sonnet-5';
+function stageApiKey(stage: Stage): string | undefined {
+  return realEnv(`ANTHROPIC_API_KEY_${stage.toUpperCase()}`) ?? realEnv('ANTHROPIC_API_KEY');
 }
 
-async function anthropicCall(body: Record<string, unknown>): Promise<string> {
-  const apiKey = realEnv('ANTHROPIC_API_KEY');
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY missing');
+function stageModel(stage: Stage): string {
+  return envVar(`LLM_MODEL_${stage.toUpperCase()}`) || envVar('LLM_MODEL') || 'claude-sonnet-5';
+}
+
+/** Per-stage stub check — each of the three keys is independent. */
+export function isStageStub(stage: Stage): boolean {
+  return !stageApiKey(stage);
+}
+
+async function anthropicCall(body: Record<string, unknown>, apiKey: string): Promise<string> {
   const res = await fetch(ANTHROPIC_URL, {
     method: 'POST',
     headers: {
@@ -104,16 +118,65 @@ function extractJson<T>(text: string): T {
   throw new Error('unparseable JSON in model reply');
 }
 
-const anthropicProvider: LlmProvider = {
-  name: 'anthropic',
-  isStub: false,
+// STUB fallbacks while a stage's ANTHROPIC_API_KEY_<STAGE> key is absent —
+// see docs/human-steps-checklist.md step 1. Zero network calls.
+function stubQuestions(answers: WalkAnswerInput[]): string[] {
+  const mention = answers[2]?.transcript?.slice(0, 60) ?? 'the work you described';
+  return [
+    `You mentioned "${mention}…" — walk us through the last time that actually happened, start to finish.`,
+    'Of everything you described, which single task would you pay to never do again — and what makes it so costly?',
+    'Who else touches this work before it is done — and where does it wait on someone?',
+    'If this were fixed tomorrow, what would you do with the reclaimed time — honestly?',
+  ];
+}
 
-  async generateWalkQuestions(answers: WalkAnswerInput[]): Promise<string[]> {
-    const transcripts = answers
-      .map((a, i) => `Q${i + 1}: ${a.question}\nTHEY SAID: ${a.transcript}`)
-      .join('\n\n');
-    const text = await anthropicCall({
-      model: model(),
+function stubReport(answers: WalkAnswerInput[]): WalkReport {
+  return {
+    headline:
+      'Preview report — the real, researched read switches on when the Anthropic report key is added.',
+    sections: [
+      {
+        title: 'What we heard',
+        body:
+          `You answered ${answers.length} questions out loud. In preview mode we cannot ` +
+          'analyse them — this placeholder proves the pipeline: your words were captured, ' +
+          'transcribed, and will be read in full when generation goes live.',
+      },
+      {
+        title: 'What the real report contains',
+        body:
+          'Where your hours are going, where AI genuinely fits (and where it does not), ' +
+          'what we found researching you from the links you gave, and what we would verify ' +
+          'next — each claim stated with its confidence, plainly.',
+      },
+      {
+        title: 'Preliminary, by design',
+        body:
+          'The automated read is the start, not the verdict. The screening call and a human ' +
+          'review come next — nothing reaches you as final without a person checking it.',
+      },
+    ],
+    matches: [],
+    stub: true,
+  };
+}
+
+/**
+ * STAGE 1 — QUESTIONS: Part 2's "right questions" from the Part 1 transcripts.
+ * Keyed by ANTHROPIC_API_KEY_QUESTIONS / LLM_MODEL_QUESTIONS.
+ */
+export async function generateWalkQuestions(
+  answers: WalkAnswerInput[]
+): Promise<{ questions: string[]; stub: boolean }> {
+  const apiKey = stageApiKey('questions');
+  if (!apiKey) return { questions: stubQuestions(answers), stub: true };
+
+  const transcripts = answers
+    .map((a, i) => `Q${i + 1}: ${a.question}\nTHEY SAID: ${a.transcript}`)
+    .join('\n\n');
+  const text = await anthropicCall(
+    {
+      model: stageModel('questions'),
       max_tokens: 1500,
       system:
         'You are the intake engine for Solborne & Co., an independent AI advisory. ' +
@@ -126,33 +189,90 @@ const anthropicProvider: LlmProvider = {
         'answerable out loud in under two minutes, and free of assumptions they did not state. ' +
         'Return ONLY a JSON array of question strings. No preamble.',
       messages: [{ role: 'user', content: transcripts }],
-    });
-    const questions = extractJson<string[]>(text);
-    if (!Array.isArray(questions) || questions.length < 1) {
-      throw new Error('model returned no questions');
-    }
-    return questions.slice(0, 12).map((q) => String(q).slice(0, 1000));
-  },
+    },
+    apiKey
+  );
+  const questions = extractJson<string[]>(text);
+  if (!Array.isArray(questions) || questions.length < 1) {
+    throw new Error('model returned no questions');
+  }
+  return { questions: questions.slice(0, 12).map((q) => String(q).slice(0, 1000)), stub: false };
+}
 
-  async generateWalkReport({ answers, contact }): Promise<WalkReport> {
-    const transcripts = answers
-      .map((a) => `[part ${a.section}] ${a.question}\nTHEY SAID: ${a.transcript}`)
-      .join('\n\n');
-    const facts = Object.entries(contact)
-      .filter(([k, v]) => v && k !== 'email' && k !== 'phone')
-      .map(([k, v]) => `${k}: ${String(v).slice(0, 500)}`)
-      .join('\n');
+/**
+ * STAGE 2 — RESEARCH: web research on the visitor from Part 3's typed facts
+ * (company, website, links). Keyed by ANTHROPIC_API_KEY_RESEARCH /
+ * LLM_MODEL_RESEARCH. Never throws — returns '' when there are no facts to
+ * research, the key is absent, or the call/tool fails, so the report stage
+ * always proceeds (without research) rather than failing the whole walk.
+ */
+async function researchVisitor(
+  contact: Record<string, unknown>
+): Promise<{ findings: string; stub: boolean }> {
+  const facts = factsFromContact(contact);
+  if (!facts) return { findings: '', stub: false };
 
-    const body: Record<string, unknown> = {
-      model: model(),
+  const apiKey = stageApiKey('research');
+  if (!apiKey) return { findings: '', stub: true };
+
+  try {
+    const text = await anthropicCall(
+      {
+        model: stageModel('research'),
+        max_tokens: 1200,
+        system:
+          'You are the research arm for Solborne & Co., an independent AI advisory. ' +
+          'Given typed facts about a visitor (company, website, links), use web search to find ' +
+          'genuinely relevant, verifiable findings about their company, site, or public work — ' +
+          'nothing speculative, nothing invented. Return ONLY a short plain-text brief, a few ' +
+          'sentences to a couple of short paragraphs, no markdown. If you find nothing solid, ' +
+          'say so plainly in one sentence.',
+        messages: [{ role: 'user', content: facts }],
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
+      },
+      apiKey
+    );
+    return { findings: text.slice(0, 4000), stub: false };
+  } catch (err) {
+    console.warn('[llm] research stage failed, continuing without it:', err);
+    return { findings: '', stub: false };
+  }
+}
+
+/**
+ * STAGE 3 — REPORT: the final synthesis of transcripts + typed facts +
+ * research findings into the preliminary audit. Keyed by
+ * ANTHROPIC_API_KEY_REPORT / LLM_MODEL_REPORT. Runs the research stage
+ * itself so callers only need one function for the whole report.
+ */
+export async function generateWalkReport({
+  answers,
+  contact,
+}: {
+  answers: WalkAnswerInput[];
+  contact: Record<string, unknown>;
+}): Promise<WalkReport> {
+  const apiKey = stageApiKey('report');
+  if (!apiKey) return stubReport(answers);
+
+  const research = await researchVisitor(contact);
+  const transcripts = answers
+    .map((a) => `[part ${a.section}] ${a.question}\nTHEY SAID: ${a.transcript}`)
+    .join('\n\n');
+  const facts = factsFromContact(contact);
+
+  const text = await anthropicCall(
+    {
+      model: stageModel('report'),
       max_tokens: 4000,
       system:
         'You are the preliminary-audit engine for Solborne & Co., an independent AI advisory. ' +
         'Voice: calm, plain, honest, no hype, no exclamation marks; confidence gets stated plainly, ' +
         'and what you do NOT know is stated just as plainly. Never invent facts about the person. ' +
         'You are given (1) a visitor\'s spoken answers about their work and pain, ' +
-        '(2) typed facts (company, links), and (3) Solborne\'s workflow catalog. ' +
-        'If web search is available, research their company/site/links briefly to sharpen the read. ' +
+        '(2) typed facts (company, links), (3) research findings already gathered on them ' +
+        '(may say nothing was found — treat that as legitimate, not a gap to fill), and ' +
+        '(4) Solborne\'s workflow catalog. ' +
         'Produce a PRELIMINARY audit report as ONLY a JSON object: ' +
         '{"headline": string (one calm sentence naming their core pain in their own words), ' +
         '"sections": [{"title": string, "body": string}] (4-6 sections: what we heard; where the hours are going; ' +
@@ -165,98 +285,36 @@ const anthropicProvider: LlmProvider = {
       messages: [
         {
           role: 'user',
-          content: `SPOKEN ANSWERS:\n${transcripts}\n\nTYPED FACTS:\n${facts || '(none provided)'}`,
+          content:
+            `SPOKEN ANSWERS:\n${transcripts}\n\nTYPED FACTS:\n${facts || '(none provided)'}` +
+            `\n\nRESEARCH FINDINGS:\n${research.findings || '(none — research unavailable or nothing found)'}`,
         },
       ],
-    };
+    },
+    apiKey
+  );
 
-    // Server-side web research on the visitor (their site, socials, news) —
-    // capped to keep cost ~$0.05-0.10/report. If the tool is unavailable on
-    // this account/model, fall back to a no-research report rather than fail.
-    let text: string;
-    try {
-      text = await anthropicCall({
-        ...body,
-        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 6 }],
-      });
-    } catch (err) {
-      console.warn('[llm] web_search unavailable, generating without research:', err);
-      text = await anthropicCall(body);
-    }
-    const parsed = extractJson<Omit<WalkReport, 'stub'>>(text);
-    if (!parsed.headline || !Array.isArray(parsed.sections)) {
-      throw new Error('model returned malformed report');
-    }
-    const validSlugs = new Set(
-      roadmap.flatMap((c) => c.items.map((i) => i.slug)).filter(Boolean)
-    );
-    return {
-      headline: String(parsed.headline).slice(0, 500),
-      sections: parsed.sections.slice(0, 8).map((s) => ({
-        title: String(s.title).slice(0, 200),
-        body: String(s.body).slice(0, 5000),
+  const parsed = extractJson<Omit<WalkReport, 'stub'>>(text);
+  if (!parsed.headline || !Array.isArray(parsed.sections)) {
+    throw new Error('model returned malformed report');
+  }
+  const validSlugs = new Set(
+    roadmap.flatMap((c) => c.items.map((i) => i.slug)).filter(Boolean)
+  );
+  return {
+    headline: String(parsed.headline).slice(0, 500),
+    sections: parsed.sections.slice(0, 8).map((s) => ({
+      title: String(s.title).slice(0, 200),
+      body: String(s.body).slice(0, 5000),
+    })),
+    matches: (parsed.matches ?? [])
+      .filter((m) => validSlugs.has(String(m.slug)))
+      .slice(0, 5)
+      .map((m) => ({
+        slug: String(m.slug),
+        name: String(m.name).slice(0, 200),
+        reason: String(m.reason).slice(0, 1000),
       })),
-      matches: (parsed.matches ?? [])
-        .filter((m) => validSlugs.has(String(m.slug)))
-        .slice(0, 5)
-        .map((m) => ({
-          slug: String(m.slug),
-          name: String(m.name).slice(0, 200),
-          reason: String(m.reason).slice(0, 1000),
-        })),
-      stub: false,
-    };
-  },
-};
-
-// STUB: replaced by the real Anthropic call once ANTHROPIC_API_KEY is set —
-// see docs/human-steps-checklist.md step 1. Zero network calls.
-const llmStub: LlmProvider = {
-  name: 'llm-stub',
-  isStub: true,
-
-  async generateWalkQuestions(answers: WalkAnswerInput[]): Promise<string[]> {
-    const mention = answers[2]?.transcript?.slice(0, 60) ?? 'the work you described';
-    return [
-      `You mentioned "${mention}…" — walk us through the last time that actually happened, start to finish.`,
-      'Of everything you described, which single task would you pay to never do again — and what makes it so costly?',
-      'Who else touches this work before it is done — and where does it wait on someone?',
-      'If this were fixed tomorrow, what would you do with the reclaimed time — honestly?',
-    ];
-  },
-
-  async generateWalkReport({ answers }): Promise<WalkReport> {
-    return {
-      headline:
-        'Preview report — the real, researched read switches on when the Anthropic key is added.',
-      sections: [
-        {
-          title: 'What we heard',
-          body:
-            `You answered ${answers.length} questions out loud. In preview mode we cannot ` +
-            'analyse them — this placeholder proves the pipeline: your words were captured, ' +
-            'transcribed, and will be read in full when generation goes live.',
-        },
-        {
-          title: 'What the real report contains',
-          body:
-            'Where your hours are going, where AI genuinely fits (and where it does not), ' +
-            'what we found researching you from the links you gave, and what we would verify ' +
-            'next — each claim stated with its confidence, plainly.',
-        },
-        {
-          title: 'Preliminary, by design',
-          body:
-            'The automated read is the start, not the verdict. The screening call and a human ' +
-            'review come next — nothing reaches you as final without a person checking it.',
-        },
-      ],
-      matches: [],
-      stub: true,
-    };
-  },
-};
-
-export function llmProvider(): LlmProvider {
-  return realEnv('ANTHROPIC_API_KEY') ? anthropicProvider : llmStub;
+    stub: false,
+  };
 }

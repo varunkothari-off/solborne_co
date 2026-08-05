@@ -120,7 +120,14 @@ const pageDescription =
         if (!email || !emailInput.checkValidity()) { fail('Enter a working email.'); return; }
         const { error } = await supabase.auth.signInWithOtp({
           email,
-          options: { shouldCreateUser: true },
+          options: {
+            shouldCreateUser: true,
+            // Explicit target, same as the OAuth path below — without this,
+            // the magic link (Supabase always includes one alongside the
+            // code) redirects wherever the project's Site URL happens to
+            // point, independent of where the app is actually running.
+            emailRedirectTo: `${location.origin}/dashboard/`,
+          },
         });
         if (error) { fail(`Could not send the code: ${error.message}`); return; }
         root.querySelector<HTMLElement>('[data-otp]')!.hidden = false;
