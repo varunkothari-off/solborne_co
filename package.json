@@ -11,10 +11,16 @@
   },
   "dependencies": {
     "@astrojs/node": "^9.5.5",
+    "@elevenlabs/client": "^1.17.0",
     "@fontsource-variable/public-sans": "^5.2.5",
     "@fontsource-variable/source-serif-4": "^5.2.5",
     "@fontsource/ibm-plex-mono": "^5.2.5",
     "@supabase/supabase-js": "^2.110.0",
     "astro": "^5.13.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@types/node": "^26.1.1",
+    "typescript": "^5.9.3"
   }
 }

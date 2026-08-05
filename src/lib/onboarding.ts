@@ -1,57 +1,64 @@
 /**
- * Shared onboarding orchestration. Since the flow-spec change, the webhook no
- * longer auto-dials — this is invoked by the internal POST /api/calls/trigger
- * (ops) and the "call me now" path on the members dashboard.
+ * Shared onboarding orchestration. Since the WebRTC rewrite (2026-08-06) the
+ * screening call is an in-browser live session, not an outbound dial — this
+ * is invoked by the internal POST /api/calls/trigger (ops) to prepare a
+ * session for a legacy booking.
  *
  * The payment-before-call rule is enforced by ordering: reserve_call runs the
- * atomic paid-gate (and booking transition) in the database BEFORE the
- * outbound provider call is placed, so a call can never precede a payment.
+ * atomic paid-gate (and booking transition) in the database BEFORE any
+ * ElevenLabs session token is minted, so a live session can never precede a
+ * payment.
  */
 import { internalRpc } from './supabase';
 import { voiceProvider } from './voice';
 import { roadmap } from '../data/roadmap';
 
-export interface TriggeredCallResult {
+export interface BookingSessionResult {
   callId: string;
-  providerCallId: string;
+  /** The ElevenLabs conversation id — stored as calls.provider_call_id, the
+      correlation key post-call webhooks are matched on. */
+  conversationId: string;
+  /** Short-lived WebRTC token for @elevenlabs/client in the browser. */
+  token: string;
   stub: boolean;
 }
 
-export async function triggerCallForBooking(
+export async function createSessionForBooking(
   bookingId: string
-): Promise<TriggeredCallResult> {
+): Promise<BookingSessionResult> {
   // 1. DB gate FIRST: reserve_call atomically requires status='paid' and
   //    transitions the booking to 'call_scheduled', inserting the calls row.
-  //    Nothing is dialled until this passes, so an unpaid booking can never
-  //    place an outbound call — the ordering the spec requires.
+  //    No token is minted until this passes, so an unpaid booking can never
+  //    open a live session — the ordering the spec requires.
   const callId = await internalRpc<string>('reserve_call', {
     p_booking_id: bookingId,
   });
 
-  // The destination number lives server-side on the booking (never trusted
-  // from the caller here). The stub ignores it; the real provider dials it.
-  const toNumber = await internalRpc<string | null>('get_booking_phone', {
-    p_booking_id: bookingId,
-  });
-
-  // 2. Now place the outbound call — the booking is confirmed paid.
+  // 2. Now mint the WebRTC session — the booking is confirmed paid.
   const provider = voiceProvider();
-  let call;
+  let session;
   try {
-    call = await provider.triggerOutboundCall({ bookingId, toNumber: toNumber ?? undefined });
+    session = await provider.createWebRtcSession({ bookingId });
   } catch (err) {
-    // Dial failed: mark the call failed and hand the booking back to 'paid'
+    // Mint failed: mark the call failed and hand the booking back to 'paid'
     // so it can be retried via POST /api/calls/trigger.
     await internalRpc('mark_call_failed', { p_call_id: callId }).catch(() => {});
     throw err;
   }
 
-  // 3. Record the provider's call id against the reserved row.
+  // 3. Record the conversation id against the reserved row BEFORE the token
+  //    goes anywhere — this is what lets the post-call webhook (keyed on
+  //    conversation_id) find its way back to this call.
   await internalRpc('attach_provider_call_id', {
     p_call_id: callId,
-    p_provider_call_id: call.providerCallId,
+    p_provider_call_id: session.conversationId,
   });
-  return { callId, providerCallId: call.providerCallId, stub: call.stub };
+  return {
+    callId,
+    conversationId: session.conversationId,
+    token: session.token,
+    stub: session.stub,
+  };
 }
 
 /** slug -> category name, from the single catalog source of truth. */

@@ -1,13 +1,19 @@
 /**
- * POST /api/screenings — schedule the AI screening call (members-only).
- * Body: { walk_id?, phone, when: 'now' | ISO-8601 }
+ * POST /api/screenings — start the live AI screening session (members-only).
+ * Body: { walk_id? }
  *
- * "now" triggers the voice provider immediately (the ElevenLabs stub until
- * the real keys + the release-gate test call exist). Future-dated screenings
- * are stored; actually firing them needs the scheduler from the go-live
- * checklist (flagged — no cron exists yet).
+ * The screening call is an in-browser WebRTC conversation with the
+ * ElevenLabs agent — no phone number, no scheduled time. Ordering is the
+ * reserve_call discipline: begin_screening_session runs the paid-package
+ * gate atomically in the database (inserting the screenings row) BEFORE any
+ * token is minted, so an unpaid member can never open a live session. The
+ * mint response's conversation_id is stored on the row via
+ * mark_screening_triggered BEFORE the token is returned, so the post-call
+ * webhook (keyed on conversation_id) always resolves to this screening.
  *
- * GET /api/me/screenings lives in ../me/screenings.ts.
+ * While the ElevenLabs keys are placeholders the stub mints a fake token
+ * (stub: true) and the dashboard shows a simulated session instead of
+ * connecting. GET /api/me/screenings lives in ../me/screenings.ts.
  */
 import type { APIRoute } from 'astro';
 import { getUserFromRequest, userRpc, internalRpc } from '../../../lib/supabase';
@@ -24,52 +30,52 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
   const auth = await getUserFromRequest(request);
   if (!auth) return json({ error: 'authentication required' }, 401);
 
-  const body = (await readJson(request)) as {
-    walk_id?: string;
-    phone?: unknown;
-    when?: unknown;
-  } | null;
-  if (!body || typeof body.phone !== 'string') {
-    return json({ error: 'phone required' }, 400);
-  }
-  const walkId = isUuid(body.walk_id) ? body.walk_id : null;
-
-  const isNow = body.when === 'now' || typeof body.when === 'undefined';
-  let scheduledAt: string | null = null;
-  if (!isNow) {
-    const parsed = new Date(String(body.when));
-    if (Number.isNaN(parsed.getTime()) || parsed.getTime() < Date.now() - 60_000) {
-      return json({ error: 'pick a valid future time, or "now"' }, 400);
-    }
-    scheduledAt = parsed.toISOString();
-  }
+  const body = (await readJson(request)) as { walk_id?: string } | null;
+  const walkId = body && isUuid(body.walk_id) ? body.walk_id : null;
 
   try {
-    const scheduled = await userRpc<{ screening_id: string }>(
+    // 1. DB gate FIRST (atomic, reserve_call-style): active paid package
+    //    required; the screenings row exists before anything is minted.
+    const begun = await userRpc<{ screening_id: string; lead_name: string | null }>(
       auth.token,
-      'schedule_screening',
-      { p_walk_id: walkId, p_phone: body.phone, p_scheduled_at: scheduledAt }
+      'begin_screening_session',
+      { p_walk_id: walkId }
     );
 
-    let call: { providerCallId: string; stub: boolean } | null = null;
-    if (isNow) {
-      try {
-        const provider = voiceProvider();
-        call = await provider.triggerOutboundCall({
-          bookingId: scheduled.screening_id,
-          toNumber: body.phone.trim(),
-        });
-        await internalRpc('mark_screening_triggered', {
-          p_screening_id: scheduled.screening_id,
-          p_provider_call_id: call.providerCallId,
-        });
-      } catch (callErr) {
-        // The screening stays 'scheduled' and can be re-triggered.
-        console.error('[screening] immediate trigger failed:', callErr);
-      }
+    // 2. Mint the WebRTC session token — the package is confirmed paid.
+    const provider = voiceProvider();
+    let session;
+    try {
+      session = await provider.createWebRtcSession({
+        bookingId: begun.screening_id,
+        leadName: begun.lead_name ?? undefined,
+      });
+    } catch (mintErr) {
+      await internalRpc('mark_screening_session_failed', {
+        p_screening_id: begun.screening_id,
+      }).catch(() => {});
+      console.error('[screening] session mint failed:', mintErr);
+      return json({ error: 'the call could not be prepared — please try again' }, 502);
     }
 
-    return json({ ok: true, ...scheduled, immediate: isNow, call }, 201);
+    // 3. Store the conversation_id on the row BEFORE the token leaves the
+    //    server — the webhook correlation depends on this write.
+    await internalRpc('mark_screening_triggered', {
+      p_screening_id: begun.screening_id,
+      p_provider_call_id: session.conversationId,
+    });
+
+    return json(
+      {
+        ok: true,
+        screening_id: begun.screening_id,
+        conversation_id: session.conversationId,
+        token: session.token,
+        lead_name: begun.lead_name,
+        stub: session.stub,
+      },
+      201
+    );
   } catch (err) {
     return errorResponse(err);
   }

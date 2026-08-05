@@ -1,12 +1,13 @@
 /**
- * POST /api/calls/trigger — internal (spec). Fires the discovery call for a
- * booking. Gated on the X-Internal-Secret header; the database additionally
- * refuses any booking that is not in 'paid' status, so this can never place
- * a call ahead of a verified payment.
+ * POST /api/calls/trigger — internal (spec). Prepares the live WebRTC
+ * screening session for a legacy booking and returns the session token.
+ * Gated on the X-Internal-Secret header; the database additionally refuses
+ * any booking that is not in 'paid' status, so this can never open a live
+ * session ahead of a verified payment.
  */
 import type { APIRoute } from 'astro';
 import { internalSecretOk } from '../../../lib/supabase';
-import { triggerCallForBooking } from '../../../lib/onboarding';
+import { createSessionForBooking } from '../../../lib/onboarding';
 import { json, errorResponse, readJson, isUuid } from '../../../lib/api';
 
 export const prerender = false;
@@ -20,7 +21,7 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ error: 'booking_id (uuid) required' }, 400);
   }
   try {
-    const result = await triggerCallForBooking(body.booking_id);
+    const result = await createSessionForBooking(body.booking_id);
     return json({ ok: true, ...result });
   } catch (err) {
     return errorResponse(err);

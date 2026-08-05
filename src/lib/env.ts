@@ -59,11 +59,11 @@ export const stubMode = {
   get stripe(): boolean {
     return !realEnv('STRIPE_SECRET_KEY');
   },
+  // In-browser WebRTC sessions need only the agent key + agent id.
+  // (ELEVENLABS_PHONE_NUMBER_ID died with the Twilio outbound-call rail.)
   get elevenlabs(): boolean {
     return (
-      !realEnv('ELEVENLABS_API_KEY') ||
-      !realEnv('ELEVENLABS_AGENT_ID') ||
-      !realEnv('ELEVENLABS_PHONE_NUMBER_ID')
+      !realEnv('ELEVENLABS_API_KEY_AGENT') || !realEnv('ELEVENLABS_AGENT_ID')
     );
   },
 };

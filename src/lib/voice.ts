@@ -1,27 +1,38 @@
 /**
- * Voice provider seam (the paid discovery call). Every caller goes through
+ * Voice provider seam (the paid screening call). Every caller goes through
  * voiceProvider() — the same interface a real ElevenLabs integration uses —
- * so going live is a key-paste plus implementing
- * src/lib/providers/elevenlabs.ts.
+ * so going live is a key-paste plus src/lib/providers/elevenlabs.ts.
+ *
+ * ARCHITECTURE (2026-08-06): the screening call is an in-browser, real-time
+ * WebRTC conversation with the ElevenLabs agent — no phone number, no Twilio,
+ * no scheduled call time. The server mints a short-lived conversation token
+ * (this seam); the browser connects with @elevenlabs/client. The token mint
+ * response includes the conversation_id, which is stored on the screening/
+ * call row BEFORE the browser ever connects — that server-known id is the
+ * one trusted correlation key for post-call webhooks.
  *
  * HARD RELEASE GATE: the system is NOT launch-ready until ElevenLabs is
- * verified with a real test call. Stub completeness is not the same as done.
+ * verified with a real, supervised, talked-through browser session. Stub
+ * completeness is not the same as done.
  */
 import { stubMode } from './env';
 import { elevenLabsStub } from './stubs/elevenlabs';
 import { elevenLabsReal } from './providers/elevenlabs';
 
-export interface TriggerCallInput {
+export interface CreateSessionInput {
+  /** The screening/booking uuid this session belongs to. Passed to the agent
+      as the booking_id dynamic variable (client-side; informational only —
+      correlation never relies on it). */
   bookingId: string;
-  /** Destination number for the outbound call (E.164-ish). Required by the
-      real provider; the stub ignores it. */
-  toNumber?: string;
   /** Lead's first name for the agent's greeting; no other PII is passed. */
-  toName?: string;
+  leadName?: string;
 }
 
-export interface TriggeredCall {
-  providerCallId: string;
+export interface WebRtcSession {
+  /** Short-lived token the browser hands to Conversation.startSession(). */
+  token: string;
+  /** Known at mint time — store it server-side before returning the token. */
+  conversationId: string;
   /** true when produced by the stub — surfaced to the UI so it can say so. */
   stub: boolean;
 }
@@ -29,11 +40,11 @@ export interface TriggeredCall {
 export interface VoiceProvider {
   readonly name: string;
   readonly isStub: boolean;
-  triggerOutboundCall(input: TriggerCallInput): Promise<TriggeredCall>;
+  createWebRtcSession(input: CreateSessionInput): Promise<WebRtcSession>;
 }
 
 export function voiceProvider(): VoiceProvider {
-  // STUB SELECTION: while ELEVENLABS_API_KEY / ELEVENLABS_AGENT_ID /
-  // ELEVENLABS_PHONE_NUMBER_ID are absent or placeholders, the stub is used.
+  // STUB SELECTION: while ELEVENLABS_API_KEY_AGENT / ELEVENLABS_AGENT_ID
+  // are absent or placeholders, the stub is used.
   return stubMode.elevenlabs ? elevenLabsStub : elevenLabsReal;
 }

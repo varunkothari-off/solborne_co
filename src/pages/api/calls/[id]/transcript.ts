@@ -4,6 +4,13 @@
  * flagged for human review before any reveal (enforced in-database:
  * confidence < 0.7 sets needs_human_review and skips expert assignment).
  *
+ * :id is OUR calls.id uuid. ElevenLabs' post-call webhook is keyed on its
+ * conversation_id instead — since the WebRTC rewrite that exact id is stored
+ * in calls.provider_call_id at session-mint time, so the forwarder that
+ * relays webhook payloads here resolves conversation_id -> calls.id via that
+ * column. (Under Twilio the stored id could be the callSid, which the
+ * webhook never carried — that lookup could silently miss. It can't now.)
+ *
  * Body: { transcript: object, routing: { category: string }, confidence: number }
  */
 import type { APIRoute } from 'astro';
