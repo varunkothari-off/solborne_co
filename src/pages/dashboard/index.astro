@@ -11,7 +11,8 @@ import { walk } from '../../data/walk';
  *  3. below it, the preliminary report builds live (status + elapsed time —
  *     never the internal workings), then renders when ready,
  *  4. the journey map shows where they are and what comes after,
- *  5. the AI screening call can be scheduled — now, or whenever suits.
+ *  5. once the package is paid, the AI screening call runs live in the
+ *     browser (ElevenLabs WebRTC) — started whenever they're ready.
  */
 const pageTitle = 'Your dashboard — Solborne & Co.';
 const pageDescription =
@@ -73,24 +74,18 @@ const pageDescription =
           </div>
 
           <div data-scheduler hidden>
-            <p class="db-quiet">Your package is active. A 30-minute-max call with our AI
-            agent — it goes deeper than the walk, and a human reviews everything after.
-            Schedule it now or whenever suits.</p>
+            <p class="db-quiet">Your package is active. A 30-minute-max live call with our
+            AI agent, right here in the browser — it goes deeper than the walk, and a
+            human reviews everything after. Start whenever you're ready.</p>
             <div data-screenings></div>
-            <div class="db-fields">
-              <div class="db-field">
-                <label for="db-phone">Phone (with country code)</label>
-                <input id="db-phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+91 98765 43210" />
+            <div data-call-idle>
+              <div class="db-row">
+                <button type="button" class="db-primary" data-start-call>Start the call now &rarr;</button>
               </div>
-              <div class="db-field">
-                <label for="db-when">When</label>
-                <input id="db-when" type="datetime-local" />
-              </div>
+              <p class="db-quiet db-call-hint">No phone needed — the call happens here.
+              Your browser will ask for microphone access.</p>
             </div>
-            <div class="db-row">
-              <button type="button" class="db-primary" data-call-now>Call me now &rarr;</button>
-              <button type="button" class="db-ghost" data-call-later>Schedule for that time</button>
-            </div>
+            <div class="db-call" data-call-live hidden></div>
           </div>
 
           <p class="db-quiet db-after">
@@ -111,6 +106,7 @@ const pageDescription =
 
   <script>
     import { createClient } from '@supabase/supabase-js';
+    import { Conversation } from '@elevenlabs/client';
 
     const root = document.querySelector<HTMLElement>('[data-dashboard]');
     if (root) {
@@ -235,7 +231,7 @@ const pageDescription =
           .join('');
         box.innerHTML =
           (report.stub
-            ? `<p class="db-stubnote">Preview report — the real, researched read switches on when the Anthropic key is added.</p>`
+            ? `<p class="db-stubnote">Preview report</p>`
             : '') +
           `<p class="db-headline">${esc(report.headline ?? '')}</p>` +
           (report.sections ?? [])
@@ -390,35 +386,146 @@ const pageDescription =
           `<ul class="db-screenings" role="list">` +
           items
             .map((s) => {
-              const when = new Date(s.scheduled_at).toLocaleString();
+              const when = new Date(s.created_at ?? s.scheduled_at).toLocaleString();
               const label =
                 s.status === 'triggered'
-                  ? 'call placed'
+                  ? `call started — ${when}`
                   : s.status === 'completed'
                     ? 'complete'
-                    : `scheduled — ${when}`;
+                    : s.status === 'cancelled'
+                      ? 'did not connect'
+                      : 'reserved';
               return `<li><span class="db-scr-status">${esc(s.status)}</span> ${esc(label)}</li>`;
             })
             .join('') +
           `</ul>`;
       }
 
-      async function scheduleScreening(when: 'now' | string) {
-        errorEl.hidden = true;
-        const phone = root!.querySelector<HTMLInputElement>('#db-phone')!.value.trim();
-        if (!/^\+?[0-9][0-9 ()\-]{6,20}$/.test(phone)) {
-          fail('A reachable phone number (with country code) is needed for the call.');
+      // ---- The live call (in-browser WebRTC session) ----
+      // States: idle -> connecting -> live (speaking/listening) -> ended.
+      // Stub mode (no ElevenLabs keys) shows a simulated session, no network.
+      let session: Awaited<ReturnType<typeof Conversation.startSession>> | null = null;
+      let sessionStub = false;
+      let callTick: ReturnType<typeof setInterval> | null = null;
+      let callT0 = 0;
+
+      const idleBox = () => root!.querySelector<HTMLElement>('[data-call-idle]')!;
+      const liveBox = () => root!.querySelector<HTMLElement>('[data-call-live]')!;
+
+      function renderCall(
+        phase: 'connecting' | 'live' | 'ended',
+        mode: 'speaking' | 'listening' = 'listening'
+      ) {
+        idleBox().hidden = phase !== 'ended';
+        liveBox().hidden = false;
+        if (phase === 'connecting') {
+          liveBox().innerHTML =
+            `<p class="db-gen"><span class="db-gen-dot" aria-hidden="true"></span>Connecting you to the agent…</p>`;
           return;
         }
+        if (phase === 'live') {
+          liveBox().innerHTML =
+            (sessionStub
+              ? `<p class="db-stubnote">Simulated session (stub) — no real voice agent is connected yet, and nothing is recorded.</p>`
+              : '') +
+            `<p class="db-gen"><span class="db-gen-dot" aria-hidden="true"></span>` +
+            `Live — the agent is <span data-call-mode>${esc(mode)}</span>.</p>` +
+            `<p class="db-quiet" data-call-elapsed></p>` +
+            `<div class="db-row"><button type="button" class="db-primary" data-end-call>End the call</button></div>`;
+          liveBox()
+            .querySelector('[data-end-call]')
+            ?.addEventListener('click', () => endCall());
+          if (callTick) clearInterval(callTick);
+          callT0 = Date.now();
+          const elapsedEl = liveBox().querySelector<HTMLElement>('[data-call-elapsed]')!;
+          callTick = setInterval(() => {
+            elapsedEl.textContent = `On the call: ${fmt(Math.floor((Date.now() - callT0) / 1000))}`;
+          }, 1000);
+          return;
+        }
+        // ended
+        if (callTick) clearInterval(callTick);
+        liveBox().innerHTML =
+          `<p class="db-quiet">Call ended. Our reviewers take it from here — you'll see
+          the outcome on this page. If you were cut off, start again any time.</p>`;
+      }
+
+      function resetCall() {
+        if (callTick) clearInterval(callTick);
+        session = null;
+        sessionStub = false;
+        idleBox().hidden = false;
+        liveBox().hidden = true;
+        liveBox().innerHTML = '';
+      }
+
+      async function endCall() {
+        const s = session;
+        session = null;
         try {
-          await api('/api/screenings', {
+          if (s) await s.endSession();
+        } catch { /* already closed */ }
+        renderCall('ended');
+        api('/api/me/screenings')
+          .then((mine) => renderScreenings(mine.screenings ?? []))
+          .catch(() => {});
+      }
+
+      async function startCall() {
+        errorEl.hidden = true;
+        const btn = root!.querySelector<HTMLButtonElement>('[data-start-call]')!;
+        btn.disabled = true;
+        renderCall('connecting');
+        try {
+          // Server-side: paid-package gate, token mint, conversation_id
+          // stored — all before this response exists.
+          const prep = await api('/api/screenings', {
             method: 'POST',
-            body: JSON.stringify({ walk_id: walkId, phone, when }),
+            body: JSON.stringify({ walk_id: walkId }),
           });
-          const mine = await api('/api/me/screenings');
-          renderScreenings(mine.screenings ?? []);
+          sessionStub = prep.stub === true;
+
+          if (sessionStub) {
+            // No real agent behind the token — show the simulated session.
+            renderCall('live');
+            return;
+          }
+
+          try {
+            await navigator.mediaDevices.getUserMedia({ audio: true });
+          } catch {
+            resetCall();
+            fail('Microphone access is needed for the call — allow it in your browser and try again.');
+            return;
+          }
+
+          session = await Conversation.startSession({
+            conversationToken: prep.token,
+            connectionType: 'webrtc',
+            // Informational for the agent's greeting only — the server
+            // correlates by conversation_id, never by these.
+            dynamicVariables: {
+              booking_id: prep.screening_id,
+              lead_name: prep.lead_name ?? '',
+            },
+            onConnect: () => renderCall('live'),
+            onModeChange: ({ mode }) => {
+              const el = liveBox().querySelector<HTMLElement>('[data-call-mode]');
+              if (el) el.textContent = mode === 'speaking' ? 'speaking' : 'listening';
+            },
+            onDisconnect: () => {
+              if (session) { session = null; renderCall('ended'); }
+            },
+            onError: (message) => {
+              resetCall();
+              fail(typeof message === 'string' && message ? message : 'The call hit a problem — try again.');
+            },
+          });
         } catch (err) {
-          fail(err instanceof Error ? err.message : 'Could not schedule the call.');
+          resetCall();
+          fail(err instanceof Error ? err.message : 'Could not start the call.');
+        } finally {
+          btn.disabled = false;
         }
       }
 
@@ -496,14 +603,10 @@ const pageDescription =
       }
 
       // ---- Wire buttons ----
-      root.querySelector('[data-call-now]')?.addEventListener('click', () => scheduleScreening('now'));
-      root.querySelector('[data-call-later]')?.addEventListener('click', () => {
-        const when = root!.querySelector<HTMLInputElement>('#db-when')!.value;
-        if (!when) { fail('Pick a date and time first, or use "Call me now".'); return; }
-        scheduleScreening(new Date(when).toISOString());
-      });
+      root.querySelector('[data-start-call]')?.addEventListener('click', () => startCall());
       root.querySelector('[data-signout]')?.addEventListener('click', async () => {
         if (pollHandle) clearTimeout(pollHandle);
+        await endCall().catch(() => {});
         await supabase.auth.signOut();
         location.href = '/';
       });
@@ -803,40 +906,16 @@ const pageDescription =
     margin-right: 0.5rem;
   }
 
-  .db-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-sm);
-    max-width: 32rem;
-    margin-bottom: var(--space-sm);
+  .db-call-hint {
+    margin-top: var(--space-sm);
+    margin-bottom: 0;
   }
 
-  @media (max-width: 640px) {
-    .db-fields { grid-template-columns: 1fr; }
+  .db-call {
+    border-top: var(--border-hairline);
+    padding-top: var(--space-sm);
+    margin-top: var(--space-sm);
   }
-
-  .db-field label {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: var(--text-tag);
-    font-weight: var(--weight-mono-medium);
-    letter-spacing: var(--tracking-tag);
-    text-transform: uppercase;
-    color: var(--color-stone);
-    margin-bottom: 0.375rem;
-  }
-
-  .db-field input {
-    width: 100%;
-    background: var(--color-paper);
-    border: var(--border-hairline);
-    border-radius: var(--radius-swatch);
-    padding: 0.75rem 1rem;
-    font-size: 1rem;
-    color: var(--color-ink);
-  }
-
-  .db-field input:focus { border-color: var(--color-steel); }
 
   .db-row {
     display: flex;
