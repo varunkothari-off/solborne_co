@@ -32,10 +32,11 @@ export const prerender = false;
 // the report: on timeout we finish the report with no images.
 const WIREFRAME_BUDGET_MS = 120_000;
 function withTimeout<T>(p: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([
-    p,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-  ]);
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => resolve(fallback), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function ownsWalk(token: string, walkId: string): Promise<boolean> {

@@ -61,12 +61,16 @@ export async function generateReportWireframes(
     const out: ReportWireframe[] = [];
     for (let i = 0; i < generated.length; i += 1) {
       const g = generated[i];
-      let url = await storeWalkWireframe(walkId, i, g.image, g.mime);
-      // Dev with no service-role key: embed the tiny stub SVG inline so the
-      // feature is still visible. Real (large) images are only skipped, never
-      // inlined into the report row.
-      if (!url && g.stub) {
+      let url: string | null;
+      if (g.stub) {
+        // Stub placeholders are tiny SVGs — inline them as data URIs and never
+        // touch storage, so stub mode stays fully local (no network) and the
+        // bucket isn't littered with placeholders.
         url = `data:${g.mime};base64,${g.image.toString('base64')}`;
+      } else {
+        // Real screenshots are stored; the report row keeps only the URL, so
+        // its jsonb stays small. No storage (no service key) => skip the image.
+        url = await storeWalkWireframe(walkId, i, g.image, g.mime);
       }
       if (url) {
         out.push({ label: g.label, url, deviceType: g.deviceType, stub: g.stub });
