@@ -238,7 +238,10 @@ const pageDescription =
           return;
         }
         try {
-          const created = await api('/api/walks', { method: 'POST' });
+          const created = await api('/api/walks', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+          });
           state.walkId = created.walk_id;
           localStorage.setItem(STORE_KEY, String(state.walkId));
           const walkState = await api(`/api/walks/${state.walkId}`);
@@ -515,7 +518,10 @@ const pageDescription =
           gen.textContent = `Listening back… ${fmt(Math.floor((Date.now() - t0) / 1000))}`;
         }, 1000);
         try {
-          const data = await api(`/api/walks/${state.walkId}/questions`, { method: 'POST' });
+          const data = await api(`/api/walks/${state.walkId}/questions`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+          });
           state.partTwo = data.questions ?? [];
           clearInterval(tick);
           if (state.partTwo.length === 0) throw new Error('no questions came back');
